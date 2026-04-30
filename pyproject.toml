@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ekaquant"
+version = "0.1.0"
+description = "Task-aware selective quantization toolkit for eka-eval integration"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "torch>=2.4.0",
+  "transformers>=4.44.2",
+  "bitsandbytes>=0.43.3",
+  "numpy>=1.26.0",
+  "scipy>=1.13.0",
+  "kneed>=0.8.5",
+  "scikit-image>=0.24.0",
+  "tqdm>=4.66.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["ekaquant*"]
