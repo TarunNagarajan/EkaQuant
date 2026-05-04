@@ -116,17 +116,25 @@ def evaluate_model(model_id, precision):
             stderr=subprocess.STDOUT
         )
         
-    if os.path.exists("results_output"):
+    # 4. Copy to isolated folder (with fallback check for results directory)
+    source_dir = None
+    for d in ["results_output", "results"]:
+        if os.path.exists(d):
+            source_dir = d
+            break
+            
+    if source_dir:
         os.makedirs(folder_name, exist_ok=True)
-        os.system(f"cp -r results_output/* {folder_name}/")
+        abs_folder = os.path.abspath(folder_name)
+        os.system(f"cp -r {source_dir}/* {abs_folder}/")
         
         print("\n✅ EVALUATION COMPLETE!\n")
-        csv_path = f"{folder_name}/calculated.csv"
+        csv_path = os.path.join(folder_name, "calculated.csv")
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
             print(df.to_markdown(index=False))
         
-        detailed_jsons = sorted(glob.glob(f"{folder_name}/detailed_results/*.json"))
+        detailed_jsons = sorted(glob.glob(os.path.join(folder_name, "detailed_results", "*.json")))
         if detailed_jsons:
             latest_json = detailed_jsons[-1]
             try:
@@ -135,14 +143,14 @@ def evaluate_model(model_id, precision):
                     questions = data.get("detailed_results", [])
                     print(f"\n🔍 --- SNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name} {precision}-bit) ---")
                     for idx, q in enumerate(questions[-3:]):
-                        print(f"\n❓ QUESTION {idx+1}:\n{q.get('question')}\n")
-                        print(f"🤖 RAW OUTPUT:\n{q.get('raw_response')}\n")
-                        print(f"🎯 CORRECT? {q.get('is_correct')}")
+                        print(f"\n❓ QUESTION {idx+1}:\n{str(q.get('question'))[:100]}...")
+                        print(f"🤖 RAW OUTPUT:\n{str(q.get('raw_response'))}")
+                        print(f"🎯 CORRECT? {str(q.get('is_correct'))}")
                         print("-" * 80)
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\n❌ ERROR: No results generated for {model_id} {precision}-bit. Check {log_filename}.")
+        print(f"\n❌ ERROR: No results directory (results_output or results) generated for {model_id}. Check {log_filename}.")
 
 def main():
     check_hardware()
