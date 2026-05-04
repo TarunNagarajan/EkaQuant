@@ -29,11 +29,18 @@ def set_precision(loader_path, precision):
             bnb_4bit_use_double_quant=True,
         )'''
         
-    content = re.sub(
-        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\\)", 
-        new_config, 
-        content
-    )
+    # Find the starting and ending index of the current BitsAndBytesConfig
+    start_marker = "quantization_config = BitsAndBytesConfig("
+    start_idx = content.find(start_marker)
+    if start_idx == -1:
+        return
+        
+    # Find the closing parenthesis
+    end_idx = content.find(")", start_idx) + 1
+    
+    # Replace the block
+    content = content[:start_idx] + new_config + content[end_idx:]
+    
     with open(loader_path, "w", encoding="utf-8") as f:
         f.write(content)
 
