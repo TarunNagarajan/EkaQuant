@@ -155,7 +155,7 @@ def main():
     setup_environment()
     
     models = [
-        "Qwen/Qwen2.5-3B-Instruct",
+        # "Qwen/Qwen2.5-3B-Instruct",
         "Qwen/Qwen2.5-7B-Instruct",
         "google/gemma-2-9b-it"
     ]
