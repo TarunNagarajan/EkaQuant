@@ -45,7 +45,7 @@ def check_hardware():
         gpu_info = subprocess.check_output("nvidia-smi -L", shell=True).decode()
         print(gpu_info.strip())
         if "T4" not in gpu_info:
-            print("ERROR: T4 GPU not detected. Please switch your Kaggle accelerator to T4 x2.")
+            print("ERROR: T4 GPU not detected.")
             sys.exit(1)
         print("Hardware check passed.")
     except Exception as e:
@@ -65,14 +65,15 @@ def setup_environment():
             login(token=hf_token)
             print("HF authentication successful.")
     except Exception:
-        print("Note: Could not authenticate with HF.")
+        pass
         
+    print("Installing dependencies...")
     os.system("rm -rf eka-eval results_output results")
     os.system("pip install -q transformers bitsandbytes accelerate peft datasets numpy scipy kneed scikit-image tqdm evaluate rouge_score pandas tabulate")
     
-    if not os.path.exists("eka-eval"):
-        os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
-    
+    print("Cloning eka-eval...")
+    os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
+    print("Installing eka-eval...")
     os.system("cd eka-eval && pip install -q -e .")
     
     print("Patching config...")
@@ -91,13 +92,8 @@ def setup_environment():
 
 def evaluate_model(model_id, precision):
     model_name = model_id.split("/")[-1]
-    folder_name = f"eval_{{precision}}bit_{{model_name}}"
+    folder_name = f"eval_{precision}bit_{model_name}"
     
-    # Checkpoint: Skip if already done
-    if os.path.exists(f"{folder_name}/calculated.csv"):
-        print(f"⏩ SKIPPING: {precision}-bit {model_id} (already completed)")
-        return
-
     print("\n" + "="*80)
     print(f"🚀 STARTING {precision}-BIT EVALUATION: {model_id}")
     print("="*80)
@@ -107,10 +103,10 @@ def evaluate_model(model_id, precision):
 
     os.system("rm -rf results_output results")
     
-    log_filename = f"eval_{{precision}}bit_{{model_name}}.log"
+    print(f"⏳ Running benchmarks on 2x T4... (Log: eval_{precision}bit_{model_name}.log)")
     input_seq = f"1\n1\n{model_id}\nno\n9\n1\nno\n"
     
-    print(f"⏳ Running benchmarks... (Log: {log_filename})")
+    log_filename = f"eval_{precision}bit_{model_name}.log"
     with open(log_filename, "w") as log_file:
         subprocess.run(
             ["python", "eka-eval/scripts/run_benchmarks.py"],
@@ -129,9 +125,7 @@ def evaluate_model(model_id, precision):
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
             print(df.to_markdown(index=False))
-        else:
-            print("calculated.csv not found.")
-            
+        
         detailed_jsons = sorted(glob.glob(f"{folder_name}/detailed_results/*.json"))
         if detailed_jsons:
             latest_json = detailed_jsons[-1]
@@ -139,7 +133,7 @@ def evaluate_model(model_id, precision):
                 with open(latest_json, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     questions = data.get("detailed_results", [])
-                    print(f"\n🔍 --- SNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name}) ---")
+                    print(f"\n🔍 --- SNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name} {precision}-bit) ---")
                     for idx, q in enumerate(questions[-3:]):
                         print(f"\n❓ QUESTION {idx+1}:\n{q.get('question')}\n")
                         print(f"🤖 RAW OUTPUT:\n{q.get('raw_response')}\n")
@@ -148,15 +142,15 @@ def evaluate_model(model_id, precision):
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\n❌ ERROR: Evaluation failed for {model_id} {precision}-bit. Check {log_filename}.")
+        print(f"\n❌ ERROR: No results generated for {model_id} {precision}-bit. Check {log_filename}.")
 
 def main():
     check_hardware()
     setup_environment()
     
     models = [
-        "Qwen/Qwen2.5-7B-Instruct",
-        "meta-llama/Llama-3.1-8B-Instruct"
+        "meta-llama/Llama-3.1-8B-Instruct",
+        "Qwen/Qwen2.5-7B-Instruct"
     ]
     precisions = [8, 4]
     
