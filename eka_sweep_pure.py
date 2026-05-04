@@ -156,7 +156,12 @@ def evaluate_model(model_id, precision):
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Check {log_filename}.")
+        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Check log below:")
+        if os.path.exists(log_filename):
+            with open(log_filename, "r") as f:
+                print(f.read()[-2000:])  # Print the last 2000 characters of the log
+        else:
+            print(f"Log file {log_filename} does not exist.")
 
 def main():
     check_hardware()
