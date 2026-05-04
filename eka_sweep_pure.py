@@ -3,7 +3,6 @@ import sys
 import subprocess
 import glob
 import json
-import re
 import pandas as pd
 
 def patch_file(file_path, old_str, new_str):
@@ -15,27 +14,28 @@ def patch_file(file_path, old_str, new_str):
 
 def set_precision(loader_path, precision):
     with open(loader_path, "r", encoding="utf-8") as f:
-        content = f.read()
+        lines = f.readlines()
     
-    if precision == 8:
-        new_config = '''quantization_config = BitsAndBytesConfig(
-            load_in_8bit=True,
-        )'''
-    else:
-        new_config = '''quantization_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=target_dtype,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True,
-        )'''
+    new_lines = []
+    in_block = False
+    
+    # Simple, robust line-by-line replacement to avoid all regex escaping issues
+    for line in lines:
+        if "quantization_config = BitsAndBytesConfig(" in line:
+            in_block = True
+            if precision == 8:
+                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_8bit=True)\n")
+            else:
+                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)\n")
+            continue
+        if in_block:
+            if ")" in line:
+                in_block = False
+            continue
+        new_lines.append(line)
         
-    content = re.sub(
-        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\", 
-        new_config, 
-        content
-    )
     with open(loader_path, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.writelines(new_lines)
 
 def check_hardware():
     print("="*60)
@@ -116,9 +116,7 @@ def evaluate_model(model_id, precision):
             stderr=subprocess.STDOUT
         )
         
-    # Recursive search for calculated.csv
     found_files = subprocess.check_output("find . -maxdepth 4 -name 'calculated.csv'", shell=True).decode().splitlines()
-    
     if found_files:
         source_file = found_files[0].strip()
         source_dir = os.path.dirname(source_file)
@@ -149,21 +147,14 @@ def evaluate_model(model_id, precision):
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Listing /kaggle/working/ contents:")
-        os.system("ls -R /kaggle/working/")
-        if os.path.exists(log_filename):
-            with open(log_filename, "r") as f:
-                print(f.read()[-2000:])
-        else:
-            print(f"Log file {log_filename} does not exist.")
+        print(f"\nERROR: No results generated for {model_id} {precision}-bit.")
+        os.system("ls -R")
 
 def main():
     check_hardware()
     setup_environment()
     
-    models = [
-        "meta-llama/Llama-3.1-8B-Instruct"
-    ]
+    models = ["meta-llama/Llama-3.1-8B-Instruct"]
     precisions = [8, 4]
     
     for model in models:
