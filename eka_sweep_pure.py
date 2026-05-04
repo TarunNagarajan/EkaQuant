@@ -30,7 +30,7 @@ def set_precision(loader_path, precision):
         )'''
         
     content = re.sub(
-        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\)", 
+        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\", 
         new_config, 
         content
     )
@@ -95,7 +95,7 @@ def evaluate_model(model_id, precision):
     folder_name = f"eval_{precision}bit_{model_name}"
     
     print("\n" + "="*80)
-    print(f"🚀 STARTING {precision}-BIT EVALUATION: {model_id}")
+    print(f"STARTING {precision}-BIT EVALUATION: {model_id}")
     print("="*80)
     
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
@@ -103,7 +103,7 @@ def evaluate_model(model_id, precision):
 
     os.system("rm -rf results_output results")
     
-    print(f"⏳ Running benchmarks on 2x T4... (Log: eval_{precision}bit_{model_name}.log)")
+    print(f"Running benchmarks... (Log: eval_{precision}bit_{model_name}.log)")
     input_seq = f"1\n1\n{model_id}\nno\n9\n1\nno\n"
     
     log_filename = f"eval_{precision}bit_{model_name}.log"
@@ -116,7 +116,6 @@ def evaluate_model(model_id, precision):
             stderr=subprocess.STDOUT
         )
         
-    # 4. Copy to isolated folder (with fallback check for results directory)
     source_dir = None
     for d in ["results_output", "results"]:
         if os.path.exists(d):
@@ -128,7 +127,7 @@ def evaluate_model(model_id, precision):
         abs_folder = os.path.abspath(folder_name)
         os.system(f"cp -r {source_dir}/* {abs_folder}/")
         
-        print("\n✅ EVALUATION COMPLETE!\n")
+        print("\nEVALUATION COMPLETE!\n")
         csv_path = os.path.join(folder_name, "calculated.csv")
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
@@ -141,16 +140,16 @@ def evaluate_model(model_id, precision):
                 with open(latest_json, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     questions = data.get("detailed_results", [])
-                    print(f"\n🔍 --- SNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name} {precision}-bit) ---")
+                    print(f"\nSNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name} {precision}-bit)")
                     for idx, q in enumerate(questions[-3:]):
-                        print(f"\n❓ QUESTION {idx+1}:\n{str(q.get('question'))[:100]}...")
-                        print(f"🤖 RAW OUTPUT:\n{str(q.get('raw_response'))}")
-                        print(f"🎯 CORRECT? {str(q.get('is_correct'))}")
+                        print(f"\nQUESTION {idx+1}:\n{str(q.get('question'))[:100]}...")
+                        print(f"RAW OUTPUT:\n{str(q.get('raw_response'))}")
+                        print(f"CORRECT: {str(q.get('is_correct'))}")
                         print("-" * 80)
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\n❌ ERROR: No results directory (results_output or results) generated for {model_id}. Check {log_filename}.")
+        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Check {log_filename}.")
 
 def main():
     check_hardware()
@@ -166,7 +165,7 @@ def main():
             evaluate_model(model, prec)
             
     print("\n" + "="*80)
-    print("🏆 FINAL EKAQUANT SWEEP SUMMARY")
+    print("FINAL EKAQUANT SWEEP SUMMARY")
     print("="*80)
     
     all_df = []
@@ -183,9 +182,9 @@ def main():
         res = pd.concat(all_df, ignore_index=True)
         print(res.to_markdown(index=False))
         os.system("zip -q -r all_sweep_results.zip eval_*")
-        print("\n✅ all_sweep_results.zip is ready!")
+        print("\nArchived all results into all_sweep_results.zip")
     else:
-        print("⚠️ No final results to summarize.")
+        print("No final results to summarize.")
 
 if __name__ == "__main__":
     main()
