@@ -30,7 +30,7 @@ def set_precision(loader_path, precision):
         )'''
         
     content = re.sub(
-        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\)", 
+        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\", 
         new_config, 
         content
     )
@@ -65,15 +65,14 @@ def setup_environment():
             login(token=hf_token)
             print("HF authentication successful.")
     except Exception:
-        print("Note: Could not authenticate with HF. Ensure HF_TOKEN is in Kaggle Secrets if you hit rate limits.")
+        print("Note: Could not authenticate with HF.")
         
-    print("Installing dependencies...")
     os.system("rm -rf eka-eval results_output results")
     os.system("pip install -q transformers bitsandbytes accelerate peft datasets numpy scipy kneed scikit-image tqdm evaluate rouge_score pandas tabulate")
     
-    print("Cloning eka-eval...")
-    os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
-    print("Installing eka-eval...")
+    if not os.path.exists("eka-eval"):
+        os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
+    
     os.system("cd eka-eval && pip install -q -e .")
     
     print("Patching config...")
@@ -84,7 +83,6 @@ def setup_environment():
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
     with open(loader_path, "r", encoding="utf-8") as f:
         content = f.read()
-    # Replace the explicit cuda:0 mapping with 'auto'
     content = content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
     with open(loader_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -93,8 +91,13 @@ def setup_environment():
 
 def evaluate_model(model_id, precision):
     model_name = model_id.split("/")[-1]
-    folder_name = f"eval_{precision}bit_{model_name}"
+    folder_name = f"eval_{{precision}}bit_{{model_name}}"
     
+    # Checkpoint: Skip if already done
+    if os.path.exists(f"{folder_name}/calculated.csv"):
+        print(f"⏩ SKIPPING: {precision}-bit {model_id} (already completed)")
+        return
+
     print("\n" + "="*80)
     print(f"🚀 STARTING {precision}-BIT EVALUATION: {model_id}")
     print("="*80)
@@ -102,13 +105,12 @@ def evaluate_model(model_id, precision):
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
     set_precision(loader_path, precision)
 
-    # Force a clean slate
     os.system("rm -rf results_output results")
     
-    print(f"⏳ Running benchmarks on 2x T4... (Verbose output piped to eval_{precision}bit_{model_name}.log)")
+    log_filename = f"eval_{{precision}}bit_{{model_name}}.log"
     input_seq = f"1\n1\n{model_id}\nno\n9\n1\nno\n"
     
-    log_filename = f"eval_{precision}bit_{model_name}.log"
+    print(f"⏳ Running benchmarks... (Log: {log_filename})")
     with open(log_filename, "w") as log_file:
         subprocess.run(
             ["python", "eka-eval/scripts/run_benchmarks.py"],
@@ -137,7 +139,7 @@ def evaluate_model(model_id, precision):
                 with open(latest_json, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     questions = data.get("detailed_results", [])
-                    print(f"\n🔍 --- SNEAK PEEK: LAST 3 MODEL RESPONSES FOR {model_name} ({precision}-bit) ---")
+                    print(f"\n🔍 --- SNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name}) ---")
                     for idx, q in enumerate(questions[-3:]):
                         print(f"\n❓ QUESTION {idx+1}:\n{q.get('question')}\n")
                         print(f"🤖 RAW OUTPUT:\n{q.get('raw_response')}\n")
@@ -145,19 +147,16 @@ def evaluate_model(model_id, precision):
                         print("-" * 80)
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
-        else:
-            print("No detailed JSON results found.")
     else:
-        print(f"\n❌ ERROR: No results generated for {model_id} {precision}-bit. Check {log_filename}.")
+        print(f"\n❌ ERROR: Evaluation failed for {model_id} {precision}-bit. Check {log_filename}.")
 
 def main():
     check_hardware()
     setup_environment()
     
     models = [
-        # "Qwen/Qwen2.5-3B-Instruct",
         "Qwen/Qwen2.5-7B-Instruct",
-        "google/gemma-2-9b-it"
+        "meta-llama/Llama-3.1-8B-Instruct"
     ]
     precisions = [8, 4]
     
@@ -182,9 +181,8 @@ def main():
     if all_df:
         res = pd.concat(all_df, ignore_index=True)
         print(res.to_markdown(index=False))
-        print("\n📦 Zipping artifacts...")
         os.system("zip -q -r all_sweep_results.zip eval_*")
-        print("✅ all_sweep_results.zip is ready for download!")
+        print("\n✅ all_sweep_results.zip is ready!")
     else:
         print("⚠️ No final results to summarize.")
 
