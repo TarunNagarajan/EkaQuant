@@ -29,18 +29,11 @@ def set_precision(loader_path, precision):
             bnb_4bit_use_double_quant=True,
         )'''
         
-    # Find the starting and ending index of the current BitsAndBytesConfig
-    start_marker = "quantization_config = BitsAndBytesConfig("
-    start_idx = content.find(start_marker)
-    if start_idx == -1:
-        return
-        
-    # Find the closing parenthesis
-    end_idx = content.find(")", start_idx) + 1
-    
-    # Replace the block
-    content = content[:start_idx] + new_config + content[end_idx:]
-    
+    content = re.sub(
+        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\", 
+        new_config, 
+        content
+    )
     with open(loader_path, "w", encoding="utf-8") as f:
         f.write(content)
 
@@ -123,24 +116,24 @@ def evaluate_model(model_id, precision):
             stderr=subprocess.STDOUT
         )
         
-    source_dir = None
-    for d in ["results_output", "results"]:
-        if os.path.exists(d):
-            source_dir = d
-            break
-            
-    if source_dir:
+    # Recursive search for calculated.csv
+    found_files = subprocess.check_output("find . -maxdepth 4 -name 'calculated.csv'", shell=True).decode().splitlines()
+    
+    if found_files:
+        source_file = found_files[0].strip()
+        source_dir = os.path.dirname(source_file)
+        
         os.makedirs(folder_name, exist_ok=True)
         abs_folder = os.path.abspath(folder_name)
         os.system(f"cp -r {source_dir}/* {abs_folder}/")
         
         print("\nEVALUATION COMPLETE!\n")
-        csv_path = os.path.join(folder_name, "calculated.csv")
+        csv_path = os.path.join(abs_folder, "calculated.csv")
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
             print(df.to_markdown(index=False))
         
-        detailed_jsons = sorted(glob.glob(os.path.join(folder_name, "detailed_results", "*.json")))
+        detailed_jsons = sorted(glob.glob(os.path.join(abs_folder, "detailed_results", "*.json")))
         if detailed_jsons:
             latest_json = detailed_jsons[-1]
             try:
@@ -156,16 +149,11 @@ def evaluate_model(model_id, precision):
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Diagnostic: Listing contents of /kaggle/working:")
+        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Listing /kaggle/working/ contents:")
         os.system("ls -R /kaggle/working/")
         if os.path.exists(log_filename):
             with open(log_filename, "r") as f:
                 print(f.read()[-2000:])
-        else:
-            print(f"Log file {log_filename} does not exist.")
-        if os.path.exists(log_filename):
-            with open(log_filename, "r") as f:
-                print(f.read()[-2000:])  # Print the last 2000 characters of the log
         else:
             print(f"Log file {log_filename} does not exist.")
 
@@ -202,7 +190,7 @@ def main():
         os.system("zip -q -r all_sweep_results.zip eval_*")
         print("\nArchived all results into all_sweep_results.zip")
     else:
-        print("No final results to summarize.")
+        print("⚠️ No final results to summarize.")
 
 if __name__ == "__main__":
     main()
