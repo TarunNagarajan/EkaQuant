@@ -17,13 +17,23 @@ def set_precision(loader_path, precision):
     with open(loader_path, "r", encoding="utf-8") as f:
         content = f.read()
     
-    # Reset both values first to avoid overlap issues
-    content = re.sub(r"load_in_4bit\s*=\s*(True|False)", "load_in_4bit=False", content)
-    content = re.sub(r"load_in_8bit\s*=\s*(True|False)", "load_in_8bit=False", content)
-    
-    # Set the target precision to True
-    content = re.sub(f"load_in_{precision}bit=False", f"load_in_{precision}bit=True", content)
-    
+    if precision == 8:
+        new_config = '''quantization_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+        )'''
+    else:
+        new_config = '''quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=target_dtype,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+        )'''
+        
+    content = re.sub(
+        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\)", 
+        new_config, 
+        content
+    )
     with open(loader_path, "w", encoding="utf-8") as f:
         f.write(content)
 
