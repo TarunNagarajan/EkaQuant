@@ -30,7 +30,7 @@ def set_precision(loader_path, precision):
         )'''
         
     content = re.sub(
-        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\", 
+        r"quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\)", 
         new_config, 
         content
     )
