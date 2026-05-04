@@ -149,8 +149,7 @@ def main():
     setup_environment()
     
     models = [
-        "meta-llama/Llama-3.1-8B-Instruct",
-        "Qwen/Qwen2.5-7B-Instruct"
+        "meta-llama/Llama-3.1-8B-Instruct"
     ]
     precisions = [8, 4]
     
