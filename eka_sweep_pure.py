@@ -79,6 +79,16 @@ def setup_environment():
     print("Patching config...")
     config_path = "eka-eval/eka_eval/config/benchmark_config.py"
     patch_file(config_path, "indic.mmlu_in.evaluate_mmlu_in", "multilingual.mmlu_in.evaluate_mmlu_in")
+    
+    print("Patching model_loader for multi-GPU...")
+    loader_path = "eka-eval/eka_eval/core/model_loader.py"
+    with open(loader_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    # Replace the explicit cuda:0 mapping with 'auto'
+    content = content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
+    with open(loader_path, "w", encoding="utf-8") as f:
+        f.write(content)
+        
     print("Setup complete.\n")
 
 def evaluate_model(model_id, precision):
