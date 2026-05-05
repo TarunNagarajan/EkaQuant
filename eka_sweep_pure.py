@@ -14,27 +14,33 @@ def patch_file(file_path, old_str, new_str):
 
 def set_precision(loader_path, precision):
     with open(loader_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        content = f.read()
+
+    # The original block looks exactly like this:
+    #         quantization_config = BitsAndBytesConfig(
+    #             load_in_4bit=True,
+    #             bnb_4bit_compute_dtype=target_dtype,
+    #             bnb_4bit_quant_type="nf4",
+    #             bnb_4bit_use_double_quant=True,
+    #         )
     
-    new_lines = []
-    in_block = False
+    start_marker = "        quantization_config = BitsAndBytesConfig("
+    start_idx = content.find(start_marker)
     
-    for line in lines:
-        if "quantization_config = BitsAndBytesConfig(" in line:
-            in_block = True
-            if precision == 8:
-                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_8bit=True)\n")
-            else:
-                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)\n")
-            continue
-        if in_block:
-            if ")" in line:
-                in_block = False
-            continue
-        new_lines.append(line)
+    if start_idx == -1:
+        return
         
+    end_idx = content.find("        )", start_idx) + 9
+    
+    if precision == 8:
+        new_config = "        quantization_config = BitsAndBytesConfig(\n            load_in_8bit=True,\n        )"
+    else:
+        new_config = "        quantization_config = BitsAndBytesConfig(\n            load_in_4bit=True,\n            bnb_4bit_compute_dtype=target_dtype,\n            bnb_4bit_quant_type='nf4',\n            bnb_4bit_use_double_quant=True,\n        )"
+        
+    content = content[:start_idx] + new_config + content[end_idx:]
+    
     with open(loader_path, "w", encoding="utf-8") as f:
-        f.writelines(new_lines)
+        f.write(content)
 
 def check_hardware():
     print("="*60)
