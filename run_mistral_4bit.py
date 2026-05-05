@@ -42,31 +42,6 @@ def setup_pristine_environment():
     with open(loader_path, "w", encoding="utf-8") as f:
         f.write(loader_content)
 
-    # 3. Patch ARC-Challenge-Indic for raw output logging
-    arc_path = "eka-eval/eka_eval/benchmarks/tasks/multilingual/arc_c_in.py"
-    with open(arc_path, "r", encoding="utf-8") as f:
-        arc_content = f.read()
-        
-    old_arc_logic = """
-                predicted_letter = _parse_predicted_answer(generated_text, lang_code, all_mappings)
-                
-                # Convert to indices for metric computation"""
-    
-    new_arc_logic = """
-                predicted_letter = _parse_predicted_answer(generated_text, lang_code, all_mappings)
-                
-                print("\n" + "-"*80)
-                print(f"QUESTION [{lang_code.upper()}]:\n{question[:150]}...")
-                print(f"RAW OUTPUT:\n{generated_text}")
-                print(f"EXTRACTED: {predicted_letter} | TRUE: {answer_key}")
-                print("-" * 80 + "\n", flush=True)
-                
-                # Convert to indices for metric computation"""
-                
-    arc_content = arc_content.replace(old_arc_logic, new_arc_logic)
-    with open(arc_path, "w", encoding="utf-8") as f:
-        f.write(arc_content)
-
 def run_evaluation():
     print(f"\n⏳ Running {PRECISION}-bit benchmark for {MODEL_ID} on 2x T4...")
     # 9 = INDIC BENCHMARKS, 6 = ARC-Challenge-Indic
