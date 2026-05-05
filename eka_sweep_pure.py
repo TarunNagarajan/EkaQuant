@@ -166,7 +166,7 @@ def main():
     check_hardware()
     setup_environment()
     
-    models = ["meta-llama/Llama-3.1-8B-Instruct"]
+    models = ["mistralai/Mistral-7B-Instruct-v0.3"]
     precisions = [8, 4]
     
     for model in models:
