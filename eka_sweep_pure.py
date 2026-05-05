@@ -100,6 +100,8 @@ def evaluate_model(model_id, precision):
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
     set_precision(loader_path, precision)
 
+    # Force a clean slate: Wipe ALL pre-existing calculated.csv files from the repo
+    os.system("find . -name 'calculated.csv' -type f -delete")
     os.system("rm -rf results_output results")
     
     print(f"Running benchmarks... (Log: eval_{precision}bit_{model_name}.log)")
