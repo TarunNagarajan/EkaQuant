@@ -17,27 +17,34 @@ def patch_file(file_path, old_str, new_str):
 
 def set_precision(loader_path, precision):
     with open(loader_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        content = f.read()
     
-    new_lines = []
-    in_block = False
-    
-    for line in lines:
-        if "quantization_config = BitsAndBytesConfig(" in line:
-            in_block = True
-            if precision == 8:
-                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_8bit=True)\n")
-            else:
-                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)\n")
-            continue
-        if in_block:
-            if ")" in line:
-                in_block = False
-            continue
-        new_lines.append(line)
+    if precision == 8:
+        new_config = "    quantization_config = BitsAndBytesConfig(load_in_8bit=True)"
+    else:
+        new_config = "    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)"
         
+    # Replace the existing assignment block
+    content = re.sub(
+        r"quantization_config\s*=\s*None\s*if\s*torch\.cuda\.is_available\(\):\s*quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\)",
+        new_config,
+        content
+    )
+    # If the above replacement failed, try a more generic one that doesn't rely on the 'if' block
+    if "quantization_config =" not in content:
+        # Fallback to direct string replacement
+        old_pattern = """    quantization_config = None
+    if torch.cuda.is_available():
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=target_dtype,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+        )"""
+        content = content.replace(old_pattern, new_config)
+    
     with open(loader_path, "w", encoding="utf-8") as f:
-        f.writelines(new_lines)
+        f.write(content)
 
 def check_hardware():
     print("="*60)
