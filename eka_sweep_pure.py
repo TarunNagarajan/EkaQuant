@@ -19,7 +19,6 @@ def set_precision(loader_path, precision):
     new_lines = []
     in_block = False
     
-    # Simple, robust line-by-line replacement to avoid all regex escaping issues
     for line in lines:
         if "quantization_config = BitsAndBytesConfig(" in line:
             in_block = True
@@ -147,8 +146,13 @@ def evaluate_model(model_id, precision):
             except Exception as e:
                 print(f"Could not parse detailed JSON: {e}")
     else:
-        print(f"\nERROR: No results generated for {model_id} {precision}-bit.")
+        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Listing /kaggle/working/ contents:")
         os.system("ls -R")
+        if os.path.exists(log_filename):
+            with open(log_filename, "r") as f:
+                print(f.read()[-2000:])
+        else:
+            print(f"Log file {log_filename} does not exist.")
 
 def main():
     check_hardware()
