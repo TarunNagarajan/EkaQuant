@@ -18,29 +18,28 @@ def setup_pristine_environment():
     os.system("rm -rf eka-eval results_output results calculated.csv")
     print("Cloning fresh eka-eval...")
     os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
-    os.system("cd eka-eval && pip install -q -e .")
+    os.system(f"{sys.executable} -m pip install -q -e eka-eval")
+    os.system(f"{sys.executable} -m pip install -q tabulate")
     
     # 1. Patch Configs
     config_path = "eka-eval/eka_eval/config/benchmark_config.py"
-    with open(config_path, "r", encoding="utf-8") as f:
-        config_content = f.read()
-    config_content = config_content.replace("indic.mmlu_in.evaluate_mmlu_in", "multilingual.mmlu_in.evaluate_mmlu_in")
-    config_content = config_content.replace("indic.arc_c_in.evaluate_arc_c_in", "multilingual.arc_c_in.evaluate_arc_c_in")
-    config_content = config_content.replace('"save_detailed": False', '"save_detailed": True')
-    with open(config_path, "w", encoding="utf-8") as f:
-        f.write(config_content)
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            config_content = f.read()
+        config_content = config_content.replace("indic.mmlu_in.evaluate_mmlu_in", "multilingual.mmlu_in.evaluate_mmlu_in")
+        config_content = config_content.replace("indic.arc_c_in.evaluate_arc_c_in", "multilingual.arc_c_in.evaluate_arc_c_in")
+        config_content = config_content.replace('"save_detailed": False', '"save_detailed": True')
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(config_content)
         
     # 2. Patch Model Loader for Multi-GPU
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
-    with open(loader_path, "r", encoding="utf-8") as f:
-        loader_content = f.read()
-        
-    loader_content = loader_content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
-    
-    # Precision is 4-bit, which is the default in eka-eval, so no BNB block patching is needed.
-    
-    with open(loader_path, "w", encoding="utf-8") as f:
-        f.write(loader_content)
+    if os.path.exists(loader_path):
+        with open(loader_path, "r", encoding="utf-8") as f:
+            loader_content = f.read()
+        loader_content = loader_content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
+        with open(loader_path, "w", encoding="utf-8") as f:
+            f.write(loader_content)
 
 def run_evaluation():
     print(f"\n⏳ Running {PRECISION}-bit benchmark for {MODEL_ID} on 2x T4...")
@@ -50,7 +49,7 @@ def run_evaluation():
     log_filename = f"{FOLDER_NAME}.log"
     with open(log_filename, "w") as log_file:
         subprocess.run(
-            ["python", "eka-eval/scripts/run_benchmarks.py"],
+            [sys.executable, "eka-eval/scripts/run_benchmarks.py"],
             input=input_seq,
             text=True,
             stdout=log_file,
