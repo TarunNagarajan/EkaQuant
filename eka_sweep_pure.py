@@ -4,8 +4,11 @@ import subprocess
 import glob
 import json
 import pandas as pd
+import shutil
 
 def patch_file(file_path, old_str, new_str):
+    if not os.path.exists(file_path):
+        return
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
     content = content.replace(old_str, new_str)
@@ -19,7 +22,6 @@ def set_precision(loader_path, precision):
     new_lines = []
     in_block = False
     
-    # Simple, robust line-by-line replacement to avoid all regex escaping issues
     for line in lines:
         if "quantization_config = BitsAndBytesConfig(" in line:
             in_block = True
@@ -68,71 +70,83 @@ def setup_environment():
         pass
         
     print("Installing dependencies...")
-    os.system("rm -rf eka-eval results_output results")
-    os.system("pip install -q transformers bitsandbytes accelerate peft datasets numpy scipy kneed scikit-image tqdm evaluate rouge_score pandas tabulate")
-    
-    print("Cloning eka-eval...")
-    os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
-    print("Installing eka-eval...")
-    os.system("cd eka-eval && pip install -q -e .")
+    if not os.path.exists("eka-eval"):
+        os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
+        os.system("cd eka-eval && pip install -q -e .")
     
     print("Patching config...")
     config_path = "eka-eval/eka_eval/config/benchmark_config.py"
     patch_file(config_path, "indic.mmlu_in.evaluate_mmlu_in", "multilingual.mmlu_in.evaluate_mmlu_in")
-    patch_file(config_path, "indic.gsm8k_in.evaluate_gsm8k_in", "multilingual.gsm8k_in.evaluate_gsm8k_in")
-    patch_file(config_path, '["as", "bn"]', '["hi", "bn"]') 
+    patch_file(config_path, "indic.arc_c_in.evaluate_arc_c_in", "multilingual.arc_c_in.evaluate_arc_c_in")
     
     print("Patching model_loader for multi-GPU...")
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
-    with open(loader_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    content = content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
-    with open(loader_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    if os.path.exists(loader_path):
+        with open(loader_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        content = content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
+        with open(loader_path, "w", encoding="utf-8") as f:
+            f.write(content)
 
-    print("Injecting direct logging into GSM-8K-IN...")
-    gsm_path = "eka-eval/eka_eval/benchmarks/tasks/multilingual/gsm8k_in.py"
-    if os.path.exists(gsm_path):
-        with open(gsm_path, "r", encoding="utf-8") as f:
-            gsm_content = f.read()
-        gsm_patch = """
-                true_final_answer = _extract_answer(true_answer)
-                
-                print("\n" + "-"*80)
+    print("Injecting direct logging into ARC-C-IN...")
+    arc_path = "eka-eval/eka_eval/benchmarks/tasks/multilingual/arc_c_in.py"
+    if os.path.exists(arc_path):
+        with open(arc_path, "r", encoding="utf-8") as f:
+            arc_content = f.read()
+        
+        # Inject print statements so we can see the model's raw reasoning in the logs
+        arc_patch = """
+                predicted_letter = _parse_predicted_answer(generated_text, lang_code, all_mappings)                print("\n" + "-"*80)
                 print(f"QUESTION [{lang_code.upper()}]:\n{question}")
-                print(f"RAW OUTPUT:\n{prediction_text}")
-                print(f"EXTRACTED: {predicted_answer} | TRUE: {true_final_answer}")
+                print(f"CHOICES:\n{choices_dict}")
+                print(f"RAW OUTPUT:\n{generated_text}")
+                print(f"EXTRACTED: {predicted_letter} | TRUE: {answer_key}")
                 print("-" * 80 + "\n", flush=True)
                 
-                if predicted_answer is not None and true_final_answer is not None and predicted_answer == true_final_answer:"""
-        gsm_content = gsm_content.replace("""
-                true_final_answer = _extract_answer(true_answer)
-                
-                if predicted_answer is not None and true_final_answer is not None and predicted_answer == true_final_answer:""", gsm_patch)
-        with open(gsm_path, "w", encoding="utf-8") as f:
-            f.write(gsm_content)
+                # Convert to indices for metric computation"""
+        
+        # Only replace if not already patched
+        if "RAW OUTPUT:" not in arc_content:
+            arc_content = arc_content.replace("                predicted_letter = _parse_predicted_answer(generated_text, lang_code, all_mappings)\n                \n                # Convert to indices for metric computation", arc_patch)
+            with open(arc_path, "w", encoding="utf-8") as f:
+                f.write(arc_content)
         
     print("Setup complete.\n")
 
+def clean_old_results():
+    """Recursively delete all old calculated.csv and detailed_results to prevent ghost data."""
+    for root, dirs, files in os.walk("."):
+        for f in files:
+            if f == "calculated.csv":
+                try:
+                    os.remove(os.path.join(root, f))
+                except:
+                    pass
+        if "detailed_results" in dirs:
+            try:
+                shutil.rmtree(os.path.join(root, "detailed_results"))
+            except:
+                pass
+
 def evaluate_model(model_id, precision):
     model_name = model_id.split("/")[-1]
-    folder_name = f"eval_{{precision}}bit_{{model_name}}"
+    folder_name = f"eval_{precision}bit_{model_name}"
     
     print("\n" + "="*80)
-    print(f"STARTING {precision}-BIT EVALUATION: {model_id}")
+    print(f"STARTING {precision}-BIT EVALUATION: {model_id} (ARC-Challenge-Indic)")
     print("="*80)
     
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
     set_precision(loader_path, precision)
 
-    os.system("find . -name 'calculated.csv' -type f -delete")
-    os.system("rm -rf results_output results")
+    clean_old_results()
     
-    print(f"Running benchmarks... (Log: eval_{{precision}}bit_{{model_name}}.log)")
-    # 9 = INDIC BENCHMARKS, 3 = GSM-8K-IN
-    input_seq = f"1\n1\n{model_id}\nno\n9\n3\nno\n"
+    log_filename = f"eval_{precision}bit_{model_name}.log"
+    print(f"Running benchmarks... (Log: {log_filename})")
     
-    log_filename = f"eval_{{precision}}bit_{{model_name}}.log"
+    # 9 = INDIC BENCHMARKS, 6 = ARC-Challenge-Indic
+    input_seq = f"1\n1\n{model_id}\nno\n9\n6\nno\n"
+    
     with open(log_filename, "w") as log_file:
         subprocess.run(
             ["python", "eka-eval/scripts/run_benchmarks.py"],
@@ -142,24 +156,33 @@ def evaluate_model(model_id, precision):
             stderr=subprocess.STDOUT
         )
         
-    found_files = subprocess.check_output("find . -maxdepth 4 -name 'calculated.csv'", shell=True).decode().splitlines()
-    if found_files:
-        source_file = found_files[0].strip()
-        source_dir = os.path.dirname(source_file)
-        
+    # Find the newly generated calculated.csv natively with Python
+    source_dir = None
+    for root, dirs, files in os.walk("."):
+        if "calculated.csv" in files and "eval_" not in root:
+            source_dir = root
+            break
+            
+    if source_dir:
         os.makedirs(folder_name, exist_ok=True)
         abs_folder = os.path.abspath(folder_name)
-        os.system(f"cp -r {source_dir}/* {abs_folder}/")
+        
+        # Native Python copy to avoid 'cp' shell errors
+        shutil.copy2(os.path.join(source_dir, "calculated.csv"), os.path.join(abs_folder, "calculated.csv"))
+        
+        if os.path.exists(os.path.join(source_dir, "detailed_results")):
+            dest_detailed = os.path.join(abs_folder, "detailed_results")
+            if os.path.exists(dest_detailed):
+                shutil.rmtree(dest_detailed)
+            shutil.copytree(os.path.join(source_dir, "detailed_results"), dest_detailed)
         
         print("\nEVALUATION COMPLETE!\n")
         csv_path = os.path.join(abs_folder, "calculated.csv")
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-            print(df.to_markdown(index=False))
+        df = pd.read_csv(csv_path)
+        print(df.to_markdown(index=False))
             
         print("\nSNEAK PEEK: LAST 3 MODEL RESPONSES (from log)")
         try:
-            # Safely grab the tail of the log file using python
             with open(log_filename, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 print("".join(lines[-60:]))
@@ -179,8 +202,7 @@ def main():
     check_hardware()
     setup_environment()
     
-    # Switched to Mistral-7B to bypass HF 403 Forbidden errors
-    models = ["mistralai/Mistral-7B-Instruct-v0.3"]
+    models = ["meta-llama/Llama-3.1-8B-Instruct"]
     precisions = [8, 4]
     
     for model in models:
@@ -188,7 +210,7 @@ def main():
             evaluate_model(model, prec)
             
     print("\n" + "="*80)
-    print("FINAL EKAQUANT SWEEP SUMMARY")
+    print("FINAL EKAQUANT SWEEP SUMMARY (ARC-Challenge-Indic)")
     print("="*80)
     
     all_df = []
@@ -204,8 +226,16 @@ def main():
     if all_df:
         res = pd.concat(all_df, ignore_index=True)
         print(res.to_markdown(index=False))
-        os.system("zip -q -r all_sweep_results.zip eval_*")
-        print("\nArchived all results into all_sweep_results.zip")
+        try:
+            import zipfile
+            with zipfile.ZipFile('all_sweep_results.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk('.'):
+                    if 'eval_' in root:
+                        for file in files:
+                            zipf.write(os.path.join(root, file))
+            print("\nArchived all results into all_sweep_results.zip")
+        except Exception as e:
+            print(f"Failed to zip results natively: {e}")
     else:
         print("No final results to summarize.")
 
