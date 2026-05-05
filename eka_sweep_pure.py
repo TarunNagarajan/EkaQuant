@@ -14,33 +14,28 @@ def patch_file(file_path, old_str, new_str):
 
 def set_precision(loader_path, precision):
     with open(loader_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    # The original block looks exactly like this:
-    #         quantization_config = BitsAndBytesConfig(
-    #             load_in_4bit=True,
-    #             bnb_4bit_compute_dtype=target_dtype,
-    #             bnb_4bit_quant_type="nf4",
-    #             bnb_4bit_use_double_quant=True,
-    #         )
+        lines = f.readlines()
     
-    start_marker = "        quantization_config = BitsAndBytesConfig("
-    start_idx = content.find(start_marker)
+    new_lines = []
+    in_block = False
     
-    if start_idx == -1:
-        return
+    # Simple, robust line-by-line replacement to avoid all regex escaping issues
+    for line in lines:
+        if "quantization_config = BitsAndBytesConfig(" in line:
+            in_block = True
+            if precision == 8:
+                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_8bit=True)\n")
+            else:
+                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)\n")
+            continue
+        if in_block:
+            if ")" in line:
+                in_block = False
+            continue
+        new_lines.append(line)
         
-    end_idx = content.find("        )", start_idx) + 9
-    
-    if precision == 8:
-        new_config = "        quantization_config = BitsAndBytesConfig(\n            load_in_8bit=True,\n        )"
-    else:
-        new_config = "        quantization_config = BitsAndBytesConfig(\n            load_in_4bit=True,\n            bnb_4bit_compute_dtype=target_dtype,\n            bnb_4bit_quant_type='nf4',\n            bnb_4bit_use_double_quant=True,\n        )"
-        
-    content = content[:start_idx] + new_config + content[end_idx:]
-    
     with open(loader_path, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.writelines(new_lines)
 
 def check_hardware():
     print("="*60)
@@ -84,6 +79,8 @@ def setup_environment():
     print("Patching config...")
     config_path = "eka-eval/eka_eval/config/benchmark_config.py"
     patch_file(config_path, "indic.mmlu_in.evaluate_mmlu_in", "multilingual.mmlu_in.evaluate_mmlu_in")
+    patch_file(config_path, "indic.gsm8k_in.evaluate_gsm8k_in", "multilingual.gsm8k_in.evaluate_gsm8k_in")
+    patch_file(config_path, '["as", "bn"]', '["hi", "bn"]') 
     
     print("Patching model_loader for multi-GPU...")
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
@@ -92,12 +89,34 @@ def setup_environment():
     content = content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
     with open(loader_path, "w", encoding="utf-8") as f:
         f.write(content)
+
+    print("Injecting direct logging into GSM-8K-IN...")
+    gsm_path = "eka-eval/eka_eval/benchmarks/tasks/multilingual/gsm8k_in.py"
+    if os.path.exists(gsm_path):
+        with open(gsm_path, "r", encoding="utf-8") as f:
+            gsm_content = f.read()
+        gsm_patch = """
+                true_final_answer = _extract_answer(true_answer)
+                
+                print("\n" + "-"*80)
+                print(f"QUESTION [{lang_code.upper()}]:\n{question}")
+                print(f"RAW OUTPUT:\n{prediction_text}")
+                print(f"EXTRACTED: {predicted_answer} | TRUE: {true_final_answer}")
+                print("-" * 80 + "\n", flush=True)
+                
+                if predicted_answer is not None and true_final_answer is not None and predicted_answer == true_final_answer:"""
+        gsm_content = gsm_content.replace("""
+                true_final_answer = _extract_answer(true_answer)
+                
+                if predicted_answer is not None and true_final_answer is not None and predicted_answer == true_final_answer:""", gsm_patch)
+        with open(gsm_path, "w", encoding="utf-8") as f:
+            f.write(gsm_content)
         
     print("Setup complete.\n")
 
 def evaluate_model(model_id, precision):
     model_name = model_id.split("/")[-1]
-    folder_name = f"eval_{precision}bit_{model_name}"
+    folder_name = f"eval_{{precision}}bit_{{model_name}}"
     
     print("\n" + "="*80)
     print(f"STARTING {precision}-BIT EVALUATION: {model_id}")
@@ -106,14 +125,14 @@ def evaluate_model(model_id, precision):
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
     set_precision(loader_path, precision)
 
-    # Force a clean slate: Wipe ALL pre-existing calculated.csv files from the repo
     os.system("find . -name 'calculated.csv' -type f -delete")
     os.system("rm -rf results_output results")
     
-    print(f"Running benchmarks... (Log: eval_{precision}bit_{model_name}.log)")
-    input_seq = f"1\n1\n{model_id}\nno\n9\n1\nno\n"
+    print(f"Running benchmarks... (Log: eval_{{precision}}bit_{{model_name}}.log)")
+    # 9 = INDIC BENCHMARKS, 3 = GSM-8K-IN
+    input_seq = f"1\n1\n{model_id}\nno\n9\n3\nno\n"
     
-    log_filename = f"eval_{precision}bit_{model_name}.log"
+    log_filename = f"eval_{{precision}}bit_{{model_name}}.log"
     with open(log_filename, "w") as log_file:
         subprocess.run(
             ["python", "eka-eval/scripts/run_benchmarks.py"],
@@ -137,27 +156,21 @@ def evaluate_model(model_id, precision):
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
             print(df.to_markdown(index=False))
-        
-        detailed_jsons = sorted(glob.glob(os.path.join(abs_folder, "detailed_results", "*.json")))
-        if detailed_jsons:
-            latest_json = detailed_jsons[-1]
-            try:
-                with open(latest_json, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    questions = data.get("detailed_results", [])
-                    print(f"\nSNEAK PEEK: LAST 3 MODEL RESPONSES ({model_name} {precision}-bit)")
-                    for idx, q in enumerate(questions[-3:]):
-                        print(f"\nQUESTION {idx+1}:\n{str(q.get('question'))[:100]}...")
-                        print(f"RAW OUTPUT:\n{str(q.get('raw_response'))}")
-                        print(f"CORRECT: {str(q.get('is_correct'))}")
-                        print("-" * 80)
-            except Exception as e:
-                print(f"Could not parse detailed JSON: {e}")
+            
+        print("\nSNEAK PEEK: LAST 3 MODEL RESPONSES (from log)")
+        try:
+            # Safely grab the tail of the log file using python
+            with open(log_filename, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                print("".join(lines[-60:]))
+        except Exception as e:
+            print(f"Could not read log for sneak peek: {e}")
+
     else:
-        print(f"\nERROR: No results generated for {model_id} {precision}-bit. Listing /kaggle/working/ contents:")
-        os.system("ls -R")
+        print(f"\nERROR: No results generated for {model_id} {precision}-bit.")
         if os.path.exists(log_filename):
-            with open(log_filename, "r") as f:
+            with open(log_filename, "r", encoding="utf-8") as f:
+                print("\n--- LAST 2000 CHARACTERS OF LOG ---")
                 print(f.read()[-2000:])
         else:
             print(f"Log file {log_filename} does not exist.")
@@ -166,6 +179,7 @@ def main():
     check_hardware()
     setup_environment()
     
+    # Switched to Mistral-7B to bypass HF 403 Forbidden errors
     models = ["mistralai/Mistral-7B-Instruct-v0.3"]
     precisions = [8, 4]
     
@@ -193,7 +207,7 @@ def main():
         os.system("zip -q -r all_sweep_results.zip eval_*")
         print("\nArchived all results into all_sweep_results.zip")
     else:
-        print("⚠️ No final results to summarize.")
+        print("No final results to summarize.")
 
 if __name__ == "__main__":
     main()
