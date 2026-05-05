@@ -3,7 +3,6 @@ import sys
 import subprocess
 import glob
 import json
-import re
 import pandas as pd
 import shutil
 
@@ -18,34 +17,27 @@ def patch_file(file_path, old_str, new_str):
 
 def set_precision(loader_path, precision):
     with open(loader_path, "r", encoding="utf-8") as f:
-        content = f.read()
+        lines = f.readlines()
     
-    if precision == 8:
-        new_config = "    quantization_config = BitsAndBytesConfig(load_in_8bit=True)"
-    else:
-        new_config = "    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)"
+    new_lines = []
+    in_block = False
+    
+    for line in lines:
+        if "quantization_config = BitsAndBytesConfig(" in line:
+            in_block = True
+            if precision == 8:
+                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_8bit=True)\n")
+            else:
+                new_lines.append("    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=target_dtype, bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)\n")
+            continue
+        if in_block:
+            if ")" in line:
+                in_block = False
+            continue
+        new_lines.append(line)
         
-    # Replace the existing assignment block
-    content = re.sub(
-        r"quantization_config\s*=\s*None\s*if\s*torch\.cuda\.is_available\(\):\s*quantization_config\s*=\s*BitsAndBytesConfig\([^)]+\)",
-        new_config,
-        content
-    )
-    # If the above replacement failed, try a more generic one that doesn't rely on the 'if' block
-    if "quantization_config =" not in content:
-        # Fallback to direct string replacement
-        old_pattern = """    quantization_config = None
-    if torch.cuda.is_available():
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=target_dtype,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True,
-        )"""
-        content = content.replace(old_pattern, new_config)
-    
     with open(loader_path, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.writelines(new_lines)
 
 def check_hardware():
     print("="*60)
@@ -78,14 +70,20 @@ def setup_environment():
         pass
         
     print("Installing dependencies...")
-    if not os.path.exists("eka-eval"):
-        os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
-        os.system("cd eka-eval && pip install -q -e .")
+    os.system("rm -rf eka-eval results_output results")
+    os.system("pip install -q transformers bitsandbytes accelerate peft datasets numpy scipy kneed scikit-image tqdm evaluate rouge_score pandas tabulate")
+    
+    print("Cloning eka-eval...")
+    os.system("git clone -q https://github.com/lingo-iitgn/eka-eval.git")
+    print("Installing eka-eval...")
+    os.system("cd eka-eval && pip install -q -e .")
     
     print("Patching config...")
     config_path = "eka-eval/eka_eval/config/benchmark_config.py"
     patch_file(config_path, "indic.mmlu_in.evaluate_mmlu_in", "multilingual.mmlu_in.evaluate_mmlu_in")
     patch_file(config_path, "indic.arc_c_in.evaluate_arc_c_in", "multilingual.arc_c_in.evaluate_arc_c_in")
+    # Force detailed logging in config
+    patch_file(config_path, '"save_detailed": False', '"save_detailed": True')
     
     print("Patching model_loader for multi-GPU...")
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
@@ -95,46 +93,8 @@ def setup_environment():
         content = content.replace("device_map_arg = {'': f'cuda:{target_device_id}'}", "device_map_arg = 'auto'")
         with open(loader_path, "w", encoding="utf-8") as f:
             f.write(content)
-
-    print("Injecting direct logging into ARC-C-IN...")
-    arc_path = "eka-eval/eka_eval/benchmarks/tasks/multilingual/arc_c_in.py"
-    if os.path.exists(arc_path):
-        with open(arc_path, "r", encoding="utf-8") as f:
-            arc_content = f.read()
-        
-        # Inject print statements so we can see the model's raw reasoning in the logs
-        arc_patch = """
-                predicted_letter = _parse_predicted_answer(generated_text, lang_code, all_mappings)                print("\n" + "-"*80)
-                print(f"QUESTION [{lang_code.upper()}]:\n{question}")
-                print(f"CHOICES:\n{choices_dict}")
-                print(f"RAW OUTPUT:\n{generated_text}")
-                print(f"EXTRACTED: {predicted_letter} | TRUE: {answer_key}")
-                print("-" * 80 + "\n", flush=True)
-                
-                # Convert to indices for metric computation"""
-        
-        # Only replace if not already patched
-        if "RAW OUTPUT:" not in arc_content:
-            arc_content = arc_content.replace("                predicted_letter = _parse_predicted_answer(generated_text, lang_code, all_mappings)\n                \n                # Convert to indices for metric computation", arc_patch)
-            with open(arc_path, "w", encoding="utf-8") as f:
-                f.write(arc_content)
         
     print("Setup complete.\n")
-
-def clean_old_results():
-    """Recursively delete all old calculated.csv and detailed_results to prevent ghost data."""
-    for root, dirs, files in os.walk("."):
-        for f in files:
-            if f == "calculated.csv":
-                try:
-                    os.remove(os.path.join(root, f))
-                except:
-                    pass
-        if "detailed_results" in dirs:
-            try:
-                shutil.rmtree(os.path.join(root, "detailed_results"))
-            except:
-                pass
 
 def evaluate_model(model_id, precision):
     model_name = model_id.split("/")[-1]
@@ -147,17 +107,17 @@ def evaluate_model(model_id, precision):
     loader_path = "eka-eval/eka_eval/core/model_loader.py"
     set_precision(loader_path, precision)
 
-    clean_old_results()
+    os.system("find . -name 'calculated.csv' -type f -delete")
+    os.system("rm -rf results_output results")
     
-    log_filename = f"eval_{precision}bit_{model_name}.log"
-    print(f"Running benchmarks... (Log: {log_filename})")
-    
+    print(f"Running benchmarks... (Log: eval_{precision}bit_{model_name}.log)")
     # 9 = INDIC BENCHMARKS, 6 = ARC-Challenge-Indic
     input_seq = f"1\n1\n{model_id}\nno\n9\n6\nno\n"
     
+    log_filename = f"eval_{precision}bit_{model_name}.log"
     with open(log_filename, "w") as log_file:
         subprocess.run(
-            ["python", "eka-eval/scripts/run_benchmarks.py"],
+            ["python", "eka-eval/scripts/run_benchmarks.py", "--save_detailed"],
             input=input_seq,
             text=True,
             stdout=log_file,
@@ -165,18 +125,16 @@ def evaluate_model(model_id, precision):
         )
         
     # Find the newly generated calculated.csv natively with Python
-    source_dir = None
-    for root, dirs, files in os.walk("."):
-        if "calculated.csv" in files and "eval_" not in root:
-            source_dir = root
-            break
-            
-    if source_dir:
+    found_files = subprocess.check_output("find . -maxdepth 4 -name 'calculated.csv'", shell=True).decode().splitlines()
+    if found_files:
+        source_file = found_files[0].strip()
+        source_dir = os.path.dirname(source_file)
+        
         os.makedirs(folder_name, exist_ok=True)
         abs_folder = os.path.abspath(folder_name)
         
         # Native Python copy to avoid 'cp' shell errors
-        shutil.copy2(os.path.join(source_dir, "calculated.csv"), os.path.join(abs_folder, "calculated.csv"))
+        shutil.copy2(os.path.join(source_dir, "calculated.csv"), os.path.join(abs_folder, "calculated.csv") )
         
         if os.path.exists(os.path.join(source_dir, "detailed_results")):
             dest_detailed = os.path.join(abs_folder, "detailed_results")
@@ -189,14 +147,6 @@ def evaluate_model(model_id, precision):
         df = pd.read_csv(csv_path)
         print(df.to_markdown(index=False))
             
-        print("\nSNEAK PEEK: LAST 3 MODEL RESPONSES (from log)")
-        try:
-            with open(log_filename, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                print("".join(lines[-60:]))
-        except Exception as e:
-            print(f"Could not read log for sneak peek: {e}")
-
     else:
         print(f"\nERROR: No results generated for {model_id} {precision}-bit.")
         if os.path.exists(log_filename):
