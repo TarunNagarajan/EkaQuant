@@ -1,0 +1,17 @@
+{
+  "id": "tarunnagarajan/ekaquant-4-bit-8-bit-baselines",
+  "id_no": 117363806,
+  "title": "EkaQuant: 4 bit, 8 bit Baselines ",
+  "code_file": "ekaquant-4-bit-8-bit-baselines.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": []
+}
