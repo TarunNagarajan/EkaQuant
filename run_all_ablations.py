@@ -7,9 +7,7 @@ import pandas as pd
 
 # Safe models for 2x T4 Kaggle environment (4-bit by default in eka-eval unless patched)
 MODELS_TO_RUN = [
-    "Qwen/Qwen2.5-3B-Instruct",
-    "Qwen/Qwen2.5-7B-Instruct",
-    "microsoft/phi-2"
+    "Qwen/Qwen2.5-3B-Instruct"
 ]
 
 LANGUAGES = "hi,bn,en"
