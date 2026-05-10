@@ -70,7 +70,9 @@ def main():
 
     dataset = dataset.map(format_prompts, batched=True)
 
-    training_args = TrainingArguments(
+    from trl import SFTConfig
+
+    sft_config = SFTConfig(
         output_dir="./sr_lora_output",
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
@@ -79,14 +81,14 @@ def main():
         fp16=True,
         logging_steps=10,
         optim="paged_adamw_8bit",
+        dataset_text_field="text",
+        max_seq_length=512,
     )
 
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
-        dataset_text_field="text",
-        max_seq_length=512,
-        args=training_args,
+        args=sft_config,
     )
 
     print("Starting SR-LoRA fine-tuning...")
