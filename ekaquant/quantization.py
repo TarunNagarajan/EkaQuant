@@ -91,7 +91,14 @@ class TaskAwareQuantizer:
                 )
                 new_layer.bias = nn.Parameter(bias_data, requires_grad=False)
 
+        # Free the original fp16 weights
+        layer.weight = None
+        layer.bias = None
+
         setattr(parent, child_name, new_layer.to(target_device))
+        import gc
+
+        gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
