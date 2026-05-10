@@ -16,6 +16,17 @@ Empirical validation using Mistral-7B-Instruct-v0.3 demonstrates that uniform 4-
 | English | 0.12 | 0.22 | (Baseline Robust) |
 | **Average** | 11.74 | **5.38** | **54.16%** |
 
+### VRAM Footprint Profile (Mistral-7B)
+To achieve this 54% recovery, EkaQuant introduces a mathematically bounded, negligible memory overhead compared to a naive 4-bit quantization.
+
+| Model Precision | Weight VRAM | Delta |
+| :--- | :--- | :--- |
+| **Pure bfloat16 (Baseline)** | ~14,000 MB | - |
+| **Uniform 4-bit (BitsAndBytes)** | 3,840 MB | - |
+| **EkaQuant (Task-Aware 4-bit)** | **3,990 MB** | **+3.9% (150 MB)** |
+
+*Note: The 3.9% VRAM overhead yields a 54% reduction in mathematical error for Indic languages.*
+
 ---
 
 ## Technical Validation and Visual Analysis
