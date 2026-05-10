@@ -1,0 +1,1 @@
+Identifies modules that are highly robust or potentially redundant.

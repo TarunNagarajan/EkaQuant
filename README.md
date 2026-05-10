@@ -1,55 +1,62 @@
-# EkaQuant: Task-Aware Selective Quantization
+# EkaQuant: Language-Aware Selective Quantization
 
-EkaQuant is a selective quantization library designed to recover the performance lost during standard uniform quantization (like 4-bit BitsAndBytes), specifically targeting the fragile representations of low-resource languages (e.g., Hindi, Bengali) in Small Language Models (SLMs).
+EkaQuant is a specialized quantization library designed to mitigate the performance loss observed during uniform low-bit quantization (e.g., 4-bit BitsAndBytes). It specifically addresses the disproportionate degradation of low-resource language representations (such as Hindi and Bengali) in Small Language Models (SLMs).
 
-By empirically identifying the "Language Bottlenecks" and allocating a tiny high-precision memory budget using a Knapsack algorithm, EkaQuant mathematically restores the model's intelligence without the massive VRAM overhead of an 8-bit or 16-bit model.
+By identifying critical language-specific bottlenecks and utilizing a Knapsack-based allocation strategy, EkaQuant preserves model intelligence within a restricted VRAM budget by maintaining a small subset of mission-critical weights in high precision (fp16/bf16).
 
-## 🚀 Key Achievement: 54.16% Mathematical Recovery
+## Key Achievement: 54.16% Mathematical Recovery
 
-In our latest empirical validation using **Mistral-7B-Instruct-v0.3**, standard Uniform 4-bit quantization severely degraded the model's internal probability distributions (KL-Divergence) for Hindi and Bengali.
+Empirical validation using Mistral-7B-Instruct-v0.3 demonstrates that uniform 4-bit quantization significantly distorts the model's internal probability distributions for Indic languages. EkaQuant recovers over half of this lost fidelity by protecting less than 1.5% of the model's parameters (150 MB budget).
 
-By allocating a microscopic **150 MB budget** (less than 1.5% of the model's total parameters) to keep the 5 most critical language-specific layers in `bfloat16`, **EkaQuant closed the gap to the unquantized Ground Truth by 54.16%**.
-
-### KL Divergence Recovery (Lower is better)
+### KL Divergence Recovery Analysis
 | Language | Uniform 4-bit KL | EkaQuant 4-bit KL | Improvement |
 | :--- | :--- | :--- | :--- |
-| **Hindi** | 17.75 | **6.93** | 🟢 **60.9%** |
-| **Bengali** | 17.37 | **9.00** | 🟢 **48.1%** |
-| **English** | 0.12 | 0.22 | 🟡 (Negligible impact) |
-| **Average** | 11.74 | **5.38** | 🟢 **54.16% Overall** |
+| Hindi | 17.75 | 6.93 | 60.9% |
+| Bengali | 17.37 | 9.00 | 48.1% |
+| English | 0.12 | 0.22 | (Baseline Robust) |
+| **Average** | 11.74 | **5.38** | **54.16%** |
 
 ---
 
-## 📊 The Proof is in the Data
+## Technical Validation and Visual Analysis
 
-We ran a rigorous 4-hour interpretability sweep across Dual-T4 GPUs to measure the performance drop ("Sensitivity Delta") when individual Transformer blocks were ablated. We have generated **20 distinct visualizations** mapping the exact fragility of the model.
+The effectiveness of EkaQuant is supported by a comprehensive suite of visual artifacts derived from a 4-hour dual-GPU interpretability sweep and KL-divergence validation.
 
-You can view the full suite of visualizations in the [`plots/`](plots/) directory. Highlights include:
+### KL Divergence Recovery Comparison
+![KL Divergence Comparison](plots/kl_divergence_comparison/kl_divergence_comparison.png)
+The comparison above illustrates the significant reduction in mathematical error (KL Divergence) across target languages. EkaQuant effectively bridges the gap between heavily quantized models and their high-precision counterparts.
 
-1.  **[Language Bottlenecks (Bengali vs English)](plots/04_bn_vs_en_scatter.png):** Demonstrates how specific layers (`layer.13.k_proj`, `layer.27.up_proj`) uniquely bottleneck Bengali while having almost no impact on English.
-2.  **[The Anchor (Layer 0)](plots/10_layer_0_anchor.png):** Visualizes the catastrophic collapse (Delta: -45.27) that occurs if the very first layer is perturbed, proving it must be protected at all costs.
-3.  **[KL Divergence Comparison](plots/13_kl_divergence_comparison.png):** A stark visual of EkaQuant's massive error reduction for Indic languages compared to naive Uniform 4-bit.
-4.  **[VRAM Tradeoff Curve](plots/15_vram_tradeoff_curve.png):** Showcasing our massive ROI: 54% recovery for only 150 MB of VRAM.
-5.  **[Knapsack Allocation Map](plots/16_knapsack_allocation.png):** Shows exactly which layers the algorithm mathematically deemed "mission-critical" enough to protect with the 150 MB budget.
+### Language-Specific Bottlenecks
+![Bengali vs English Scatter](plots/bn_vs_en_scatter/bn_vs_en_scatter.png)
+Analysis of Bengali versus English sensitivity reveals specific modules that are critical for Indic language performance but have negligible impact on English. These modules are prioritized for high-precision preservation.
 
-*Also check out the [Artifacts Directory](artifacts/) for raw CSV rankings and a Markdown Heatmap.*
+### Layer 0: The Architectural Anchor
+![Layer 0 Anchor](plots/layer_0_anchor/layer_0_anchor.png)
+The initial layers of the Transformer architecture exhibit extreme sensitivity to quantization. Ablation of Layer 0 components causes a near-total collapse of model performance, justifying its automatic protection in the EkaQuant strategy.
+
+### VRAM Efficiency and Tradeoff Curve
+![VRAM Tradeoff Curve](plots/vram_tradeoff_curve/vram_tradeoff_curve.png)
+The tradeoff curve demonstrates the high return on investment for small VRAM allocations. Protecting a minimal subset of weights (150-300 MB) yields diminishing returns for larger budgets, confirming the efficiency of the selective approach.
+
+### Knapsack Precision Allocation
+![Knapsack Allocation](plots/knapsack_allocation/knapsack_allocation.png)
+The allocation map shows the specific layers selected by the Knapsack algorithm for higher precision, concentrated in the critical anchor and mid-network bottleneck zones.
 
 ---
 
-## MMLU-IN Baseline Results
-*(Note: Qwen-3B struggles with 4-bit, making it a prime future target for EkaQuant)*
+## Baseline Benchmarks (MMLU-IN)
+The following results highlight the impact of uniform quantization on SLMs, establishing the baseline for EkaQuant's optimization.
 
 | Model | Precision | Score |
 | :--- | :--- | :--- |
-| Qwen/Qwen2.5-3B-Instruct | 8-bit | 35.4386% |
-| Qwen/Qwen2.5-3B-Instruct | 4-bit | 30.7018% |
-| Qwen/Qwen2.5-7B-Instruct | 8-bit | 38.5965% |
-| Qwen/Qwen2.5-7B-Instruct | 4-bit | 40.0000% |
+| Qwen/Qwen2.5-3B-Instruct | 8-bit | 35.43% |
+| Qwen/Qwen2.5-3B-Instruct | 4-bit | 30.70% |
+| Qwen/Qwen2.5-7B-Instruct | 8-bit | 38.59% |
+| Qwen/Qwen2.5-7B-Instruct | 4-bit | 40.00% |
 | Mistral-7B-Instruct-v0.3 | 8-bit | 29.82% |
 
-## Integration
-The integration with `eka-eval` is fully operational with support for:
-- Automated multi-model sweep (Mistral 7B).
-- Multi-GPU (2x T4) sharding via `device_map="auto"`.
-- KL-Divergence validation scripts (`validate_kl_divergence.py`).
-- Automated visual artifact generation (`generate_extended_artifacts.py`).
+## Project Structure
+- `ekaquant/`: Core library implementation.
+- `scripts/`: Validation and artifact generation utilities.
+- `plots/`: Detailed visual analysis and explanations.
+- `data/`: Empirical sweep results and sensitivity maps.

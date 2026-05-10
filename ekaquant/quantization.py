@@ -121,7 +121,6 @@ class TaskAwareQuantizer:
         layers_to_quantize: List[tuple[str, torch.device]] = []
         for name, module in self.model.named_modules():
             if isinstance(module, nn.Linear) and name not in layers_to_keep:
-                # Store the specific device of this module before it gets replaced
                 layers_to_quantize.append((name, module.weight.device))
 
         for layer_name, target_device in layers_to_quantize:

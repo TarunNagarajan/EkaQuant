@@ -1,0 +1,1 @@
+Histogram showing the spread of impact across all ablated modules.

@@ -81,8 +81,6 @@ def compute_fisher(
                 continue
             finally:
                 model.zero_grad(set_to_none=True)
-        if grad_norms:
-            max_grad_norm = float(np.percentile(np.array(grad_norms), clip_percentile))
 
     processed = 0
     for text in tqdm(texts, desc="Fisher", leave=False):

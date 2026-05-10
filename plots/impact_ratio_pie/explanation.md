@@ -1,0 +1,1 @@
+Ratio of modules that negatively impact performance when ablated.
