@@ -30,7 +30,8 @@ def compute_kl_divergence(logits_p, logits_q):
     p = F.log_softmax(logits_p, dim=-1)
     q = F.log_softmax(logits_q, dim=-1)
     
-    kl_div = F.kl_div(q, torch.exp(p), reduction='batchmean', log_target=True)
+    # log_target=True means target (p) is already in log space.
+    kl_div = F.kl_div(q, p, reduction='batchmean', log_target=True)
     return kl_div.item()
 
 def evaluate_model_logits(model, tokenizer, texts, max_length=128):

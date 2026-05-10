@@ -114,6 +114,9 @@ class TaskAwareQuantizer:
                 invert_selection=invert_selection,
             )
         )
+        print(f"EkaQuant: Keeping {len(layers_to_keep)} layers in higher precision.")
+        for l in layers_to_keep:
+            print(f"  - Kept: {l}")
 
         layers_to_quantize: List[tuple[str, torch.device]] = []
         for name, module in self.model.named_modules():
