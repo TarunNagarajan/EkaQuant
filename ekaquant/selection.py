@@ -120,6 +120,33 @@ def knapsack_keep_layers(
     return keep
 
 
+def expand_sensitivity_map(
+    model: nn.Module, sensitivity_map: Dict[str, float]
+) -> Dict[str, float]:
+    expanded = {}
+    linear_layers = {
+        name for name, module in model.named_modules() if isinstance(module, nn.Linear)
+    }
+
+    for name, score in sensitivity_map.items():
+        if name in linear_layers:
+            expanded[name] = score
+        else:
+            # Check if this is a block name that contains linear layers
+            try:
+                module = model.get_submodule(name)
+                for sub_name, sub_module in module.named_modules():
+                    full_sub_name = f"{name}.{sub_name}" if sub_name else name
+                    if full_sub_name in linear_layers:
+                        expanded[full_sub_name] = max(
+                            expanded.get(full_sub_name, 0), score
+                        )
+            except Exception:
+                # If name doesn't exist in model, just keep it (might be a prefix)
+                expanded[name] = score
+    return expanded
+
+
 def select_layers(
     model,
     sensitivity_map: Dict[str, float],

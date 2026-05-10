@@ -6,9 +6,9 @@ import bitsandbytes as bnb
 import torch
 import torch.nn as nn
 from bitsandbytes.nn import Params4bit
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
-from .selection import select_layers
+from .selection import expand_sensitivity_map, select_layers
 from .sensitivity import (
     compute_fisher,
     compute_magnitude,
@@ -132,6 +132,9 @@ class TaskAwareQuantizer:
                 **kwargs,
             )
 
+        # Automatically broadcast block-level sensitivities to linear modules
+        self.sensitivity_map = expand_sensitivity_map(self.model, self.sensitivity_map)
+
         selected_layers = set(
             select_layers(
                 model=self.model,
@@ -180,6 +183,7 @@ class TaskAwareQuantizer:
                     "Warning: No layers selected for SR-LoRA injection based on budget/threshold."
                 )
             else:
+                self.model = prepare_model_for_kbit_training(self.model)
                 lora_config = LoraConfig(
                     r=lora_rank,
                     lora_alpha=lora_alpha,

@@ -18,17 +18,7 @@ def load_sensitivity_map(summary_path):
         score = abs(delta) if delta < 0 else 0.0
 
         for mod_name in exp["module_names"]:
-            if mod_name.endswith(".mlp"):
-                sensitivity_map[mod_name + ".gate_proj"] = score
-                sensitivity_map[mod_name + ".up_proj"] = score
-                sensitivity_map[mod_name + ".down_proj"] = score
-            elif mod_name.endswith(".self_attn"):
-                sensitivity_map[mod_name + ".q_proj"] = score
-                sensitivity_map[mod_name + ".k_proj"] = score
-                sensitivity_map[mod_name + ".v_proj"] = score
-                sensitivity_map[mod_name + ".o_proj"] = score
-            else:
-                sensitivity_map[mod_name] = score
+            sensitivity_map[mod_name] = score
 
     return sensitivity_map
 
