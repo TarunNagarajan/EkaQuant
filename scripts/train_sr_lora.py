@@ -60,7 +60,7 @@ def main():
     # For demonstration, we use a tiny subset of Hindi/Bengali Wikipedia or similar.
     # In practice, use a targeted alignment dataset.
     print("Loading calibration dataset...")
-    dataset = load_dataset("oscar", "unshuffled_deduplicated_hi", split="train[:100]")
+    dataset = load_dataset("wikimedia/wikipedia", "20231101.hi", split="train[:100]")
 
     def format_prompts(examples):
         texts = []
