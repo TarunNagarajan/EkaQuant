@@ -82,13 +82,13 @@ def main():
         logging_steps=10,
         optim="paged_adamw_8bit",
         dataset_text_field="text",
-        max_seq_length=512,
     )
 
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
         args=sft_config,
+        max_seq_length=512,
     )
 
     print("Starting SR-LoRA fine-tuning...")
