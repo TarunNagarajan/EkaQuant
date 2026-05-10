@@ -6,6 +6,7 @@ import bitsandbytes as bnb
 import torch
 import torch.nn as nn
 from bitsandbytes.nn import Params4bit
+from peft import LoraConfig, get_peft_model
 
 from .selection import select_layers
 from .sensitivity import (
@@ -99,6 +100,9 @@ class TaskAwareQuantizer:
         calibration_texts: Iterable[str],
         sensitivity_method: Union[str, Callable] = "fisher",
         selection_method: Union[str, Callable] = "pct",
+        mode: str = "mixed_precision",
+        lora_rank: int = 8,
+        lora_alpha: int = 16,
         percentile: float = 0.2,
         sensitivity_ratio: float = 0.05,
         budget: float = 0.95,
@@ -121,7 +125,7 @@ class TaskAwareQuantizer:
                 **kwargs,
             )
 
-        layers_to_keep = set(
+        selected_layers = set(
             select_layers(
                 model=self.model,
                 sensitivity_map=self.sensitivity_map,
@@ -134,20 +138,54 @@ class TaskAwareQuantizer:
                 **kwargs,
             )
         )
-        print(f"EkaQuant: Keeping {len(layers_to_keep)} layers in higher precision.")
-        for l in layers_to_keep:
-            print(f"  - Kept: {l}")
 
-        layers_to_quantize: List[tuple[str, torch.device]] = []
-        for name, module in self.model.named_modules():
-            if isinstance(module, nn.Linear) and name not in layers_to_keep:
-                layers_to_quantize.append((name, module.weight.device))
+        mode_str = mode.lower()
+        if mode_str == "mixed_precision":
+            print(
+                f"EkaQuant [Mixed Precision]: Keeping {len(selected_layers)} layers in high precision."
+            )
+            layers_to_quantize: List[tuple[str, torch.device]] = []
+            for name, module in self.model.named_modules():
+                if isinstance(module, nn.Linear) and name not in selected_layers:
+                    layers_to_quantize.append((name, module.weight.device))
 
-        for layer_name, target_device in layers_to_quantize:
-            module = dict(self.model.named_modules())[layer_name]
-            self._replace_linear_with_bnb(layer_name, module, target_device)
+            for layer_name, target_device in layers_to_quantize:
+                module = dict(self.model.named_modules())[layer_name]
+                self._replace_linear_with_bnb(layer_name, module, target_device)
 
-        self.model.eval()
+            self.model.eval()
+
+        elif mode_str == "sr_lora":
+            print(
+                f"EkaQuant [SR-LoRA]: Quantizing all layers. Injecting LoRA adapters into {len(selected_layers)} critical layers."
+            )
+            layers_to_quantize: List[tuple[str, torch.device]] = []
+            for name, module in self.model.named_modules():
+                if isinstance(module, nn.Linear):
+                    layers_to_quantize.append((name, module.weight.device))
+
+            for layer_name, target_device in layers_to_quantize:
+                module = dict(self.model.named_modules())[layer_name]
+                self._replace_linear_with_bnb(layer_name, module, target_device)
+
+            if not selected_layers:
+                print(
+                    "Warning: No layers selected for SR-LoRA injection based on budget/threshold."
+                )
+            else:
+                lora_config = LoraConfig(
+                    r=lora_rank,
+                    lora_alpha=lora_alpha,
+                    target_modules=list(selected_layers),
+                    lora_dropout=0.05,
+                    bias="none",
+                    task_type="CAUSAL_LM",
+                )
+                self.model = get_peft_model(self.model, lora_config)
+
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return self.model

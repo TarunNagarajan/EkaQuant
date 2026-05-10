@@ -25,6 +25,7 @@ dependencies = [
   "torch>=2.4.0",
   "transformers>=4.44.2",
   "bitsandbytes>=0.43.3",
+  "peft>=0.11.0",
   "numpy>=1.26.0",
   "scipy>=1.13.0",
   "kneed>=0.8.5",

@@ -1,0 +1,110 @@
+import argparse
+import torch
+import json
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from datasets import load_dataset
+from trl import SFTTrainer
+from ekaquant.quantization import TaskAwareQuantizer
+
+
+def load_sensitivity_map(summary_path):
+    with open(summary_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    sensitivity_map = {}
+    for exp in data["merged"]["experiments"]:
+        delta = exp["overall_delta"]
+        score = abs(delta) if delta < 0 else 0.0
+        for mod_name in exp["module_names"]:
+            if mod_name.endswith(".mlp"):
+                sensitivity_map[mod_name + ".gate_proj"] = score
+                sensitivity_map[mod_name + ".up_proj"] = score
+                sensitivity_map[mod_name + ".down_proj"] = score
+            elif mod_name.endswith(".self_attn"):
+                sensitivity_map[mod_name + ".q_proj"] = score
+                sensitivity_map[mod_name + ".k_proj"] = score
+                sensitivity_map[mod_name + ".v_proj"] = score
+                sensitivity_map[mod_name + ".o_proj"] = score
+            else:
+                sensitivity_map[mod_name] = score
+    return sensitivity_map
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model-id", type=str, default="mistralai/Mistral-7B-Instruct-v0.3"
+    )
+    parser.add_argument("--summary-json", type=str, default="data/sweep_summary.json")
+    parser.add_argument("--budget-mb", type=float, default=50.0)
+    args = parser.parse_args()
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_id)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    print(f"Loading Base Model: {args.model_id}")
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_id, torch_dtype=torch.bfloat16, device_map="auto"
+    )
+
+    print("Injecting Surgical Recovery LoRA (SR-LoRA)...")
+    quantizer = TaskAwareQuantizer(model, tokenizer)
+    quantizer.sensitivity_map = load_sensitivity_map(args.summary_json)
+
+    # We use mode="sr_lora" which quantizes everything to 4-bit,
+    # but injects LoRA adapters onto the targeted bottlenecks.
+    model = quantizer.quantize(
+        calibration_texts=[],
+        selection_method="knapsack",
+        mode="sr_lora",
+        budget_mb=args.budget_mb,
+        lora_rank=8,
+        lora_alpha=16,
+    )
+
+    print("Trainable Parameters:")
+    model.print_trainable_parameters()
+
+    # Load a small sample dataset for calibration/recovery training
+    # For demonstration, we use a tiny subset of Hindi/Bengali Wikipedia or similar.
+    # In practice, use a targeted alignment dataset.
+    print("Loading calibration dataset...")
+    dataset = load_dataset("oscar", "unshuffled_deduplicated_hi", split="train[:100]")
+
+    def format_prompts(examples):
+        texts = []
+        for text in examples["text"]:
+            texts.append(text)
+        return {"text": texts}
+
+    dataset = dataset.map(format_prompts, batched=True)
+
+    training_args = TrainingArguments(
+        output_dir="./sr_lora_output",
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=4,
+        max_steps=50,
+        learning_rate=2e-4,
+        fp16=True,
+        logging_steps=10,
+        optim="paged_adamw_8bit",
+    )
+
+    trainer = SFTTrainer(
+        model=model,
+        train_dataset=dataset,
+        dataset_text_field="text",
+        max_seq_length=512,
+        args=training_args,
+    )
+
+    print("Starting SR-LoRA fine-tuning...")
+    trainer.train()
+
+    print("Saving SR-LoRA adapter...")
+    model.save_pretrained("ekaquant_sr_lora_adapter")
+    print("Done! The surgical adapter is saved and ready for inference.")
+
+
+if __name__ == "__main__":
+    main()

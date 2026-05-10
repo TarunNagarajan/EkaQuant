@@ -29,6 +29,27 @@ To achieve this 54% recovery, EkaQuant introduces a mathematically bounded, negl
 
 ---
 
+## Surgical Recovery LoRA (SR-LoRA)
+
+As an advanced alternative to mixed-precision quantization, EkaQuant introduces **Surgical Recovery LoRA (SR-LoRA)**. 
+
+Instead of keeping sensitive layers in FP16, SR-LoRA explicitly quantizes the *entire* model to 4-bit, achieving maximum VRAM savings. It then injects microscopic LoRA adapters (e.g., Rank 8) **strictly into the language bottleneck modules** identified by the Knapsack algorithm.
+
+By fine-tuning this tiny adapter (usually <10 MB of trainable parameters) on a small subset of calibration data, SR-LoRA actively *repairs* the circuitry broken by uniform quantization, potentially recovering 100% of the baseline accuracy with near-zero inference overhead.
+
+```python
+# Example: Inject SR-LoRA adapters onto the 5 most sensitive layers
+model = quantizer.quantize(
+    calibration_texts=[],
+    selection_method="knapsack",
+    budget_mb=150.0,
+    mode="sr_lora", # Switches from Mixed Precision to SR-LoRA
+    lora_rank=8
+)
+```
+
+---
+
 ## The Mechanistic Rationale: Superposition and SAEs
 
 EkaQuant's methodology is grounded in mechanistic interpretability. In foundation models pre-trained primarily on English, robust and dedicated circuitry is formed for English concepts. In contrast, the morphological richness of low-resource Indic languages forces their representations into heavy **superposition** (sharing neurons/parameters with other concepts).
