@@ -8,7 +8,11 @@ import torch.nn as nn
 from bitsandbytes.nn import Params4bit
 
 from .selection import select_layers
-from .sensitivity import compute_fisher, compute_magnitude, compute_perturbation_sensitivity
+from .sensitivity import (
+    compute_fisher,
+    compute_magnitude,
+    compute_perturbation_sensitivity,
+)
 
 
 class TaskAwareQuantizer:
@@ -28,7 +32,9 @@ class TaskAwareQuantizer:
         **kwargs,
     ) -> Dict[str, float]:
         if callable(method):
-            self.sensitivity_map = method(self.model, self.tokenizer, calibration_texts, **kwargs)
+            self.sensitivity_map = method(
+                self.model, self.tokenizer, calibration_texts, **kwargs
+            )
             return self.sensitivity_map
 
         method_str = method.lower()
@@ -55,7 +61,9 @@ class TaskAwareQuantizer:
             raise ValueError(f"Unknown sensitivity method: {method}")
         return self.sensitivity_map
 
-    def _replace_linear_with_bnb(self, full_name: str, layer: nn.Linear, target_device: torch.device):
+    def _replace_linear_with_bnb(
+        self, full_name: str, layer: nn.Linear, target_device: torch.device
+    ):
         parent = self.model
         child_name = full_name
         if "." in full_name:
@@ -72,10 +80,14 @@ class TaskAwareQuantizer:
 
         with torch.no_grad():
             weight_data = layer.weight.data.to("cpu", copy=True)
-            quantized_weight = Params4bit(weight_data, requires_grad=False, quant_type="nf4")
+            quantized_weight = Params4bit(
+                weight_data, requires_grad=False, quant_type="nf4"
+            )
             new_layer.weight = quantized_weight
             if layer.bias is not None:
-                bias_data = layer.bias.data.to(dtype=layer.weight.dtype, device="cpu", copy=True)
+                bias_data = layer.bias.data.to(
+                    dtype=layer.weight.dtype, device="cpu", copy=True
+                )
                 new_layer.bias = nn.Parameter(bias_data, requires_grad=False)
 
         setattr(parent, child_name, new_layer.to(target_device))

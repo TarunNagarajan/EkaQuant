@@ -26,7 +26,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,11 +46,18 @@ class WorkerSpec:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run ARC-Challenge-Indic baseline vs FWE on 2xT4.")
+    parser = argparse.ArgumentParser(
+        description="Run ARC-Challenge-Indic baseline vs FWE on 2xT4."
+    )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
 
     # Shared args
-    parser.add_argument("--model", type=str, required=False, default="mistralai/Mistral-7B-Instruct-v0.3")
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=False,
+        default="mistralai/Mistral-7B-Instruct-v0.3",
+    )
     parser.add_argument("--eka-eval-path", type=str, required=False, default="eka-eval")
     parser.add_argument("--dataset-split", type=str, default="validation")
     parser.add_argument("--max-new-tokens", type=int, default=5)
@@ -88,7 +94,10 @@ def worker_main(args: argparse.Namespace) -> None:
     add_eka_eval_to_path(args.eka_eval_path)
 
     from eka_eval.benchmarks.tasks.multilingual.arc_c_in import evaluate_arc_c_in
-    from eka_eval.core.model_loader import cleanup_model_resources, initialize_model_pipeline
+    from eka_eval.core.model_loader import (
+        cleanup_model_resources,
+        initialize_model_pipeline,
+    )
 
     langs = json.loads(args.languages_json)
     start = time.time()
@@ -297,7 +306,9 @@ def main() -> None:
     languages = parse_csv_strings(args.languages)
 
     if len(gpu_ids) < 2:
-        raise ValueError("Use at least 2 GPU IDs for the dual-T4 runner (e.g., --gpu-ids 0,1).")
+        raise ValueError(
+            "Use at least 2 GPU IDs for the dual-T4 runner (e.g., --gpu-ids 0,1)."
+        )
 
     visible_count = torch.cuda.device_count()
     if visible_count < 2:
@@ -318,15 +329,20 @@ def main() -> None:
 
     results: Dict[str, Dict] = {}
     for mode_name, use_fwe in selected_modes:
-        results[mode_name] = run_mode(mode_name, use_fwe, args, gpu_ids[:2], languages, run_dir)
+        results[mode_name] = run_mode(
+            mode_name, use_fwe, args, gpu_ids[:2], languages, run_dir
+        )
 
     comparison = {}
     if "baseline" in results and "fwe" in results:
         base = results["baseline"]
         fwe = results["fwe"]
-        langs_union = sorted(set(base["per_language"].keys()).union(fwe["per_language"].keys()))
+        langs_union = sorted(
+            set(base["per_language"].keys()).union(fwe["per_language"].keys())
+        )
         per_lang_delta = {
-            lang: fwe["per_language"].get(lang, 0.0) - base["per_language"].get(lang, 0.0)
+            lang: fwe["per_language"].get(lang, 0.0)
+            - base["per_language"].get(lang, 0.0)
             for lang in langs_union
         }
         comparison = {

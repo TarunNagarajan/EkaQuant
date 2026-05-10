@@ -60,7 +60,9 @@ def _write_markdown(path: str, rows: List[Dict]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create CSV/Markdown ranking from interpretability summary.json")
+    parser = argparse.ArgumentParser(
+        description="Create CSV/Markdown ranking from interpretability summary.json"
+    )
     parser.add_argument("--summary-json", type=str, required=True)
     parser.add_argument("--output-dir", type=str, default="")
     args = parser.parse_args()

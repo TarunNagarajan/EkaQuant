@@ -12,7 +12,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from eka_eval.core.model_loader import cleanup_model_resources, initialize_model_pipeline
+from eka_eval.core.model_loader import (
+    cleanup_model_resources,
+    initialize_model_pipeline,
+)
 from eka_eval.interpretability import AblationExperiment, run_arc_ablation_comparison
 from eka_eval.interpretability.artifacts import ensure_dir, write_json
 
@@ -58,7 +61,9 @@ def _load_experiments(path: str) -> List[AblationExperiment]:
 
 def _worker_main(args: argparse.Namespace) -> None:
     languages = json.loads(args.languages_json)
-    experiments = _load_experiments(args.experiments_json) if args.experiments_json else None
+    experiments = (
+        _load_experiments(args.experiments_json) if args.experiments_json else None
+    )
 
     pipe, _ = initialize_model_pipeline(
         model_name_or_path=args.model,
@@ -95,7 +100,9 @@ def _merge_payloads(payloads: List[Dict]) -> Dict:
         all_languages.extend(languages)
         for language in languages:
             baseline_key = f"ARC-Challenge-Indic_{language}"
-            baseline_per_language[language] = float(payload["baseline_scores"].get(baseline_key, 0.0))
+            baseline_per_language[language] = float(
+                payload["baseline_scores"].get(baseline_key, 0.0)
+            )
 
         for experiment in payload["experiments"]:
             name = experiment["name"]
@@ -116,13 +123,18 @@ def _merge_payloads(payloads: List[Dict]) -> Dict:
                 }
 
     sorted_languages = sorted(set(all_languages))
-    baseline_overall = sum(baseline_per_language.get(lang, 0.0) for lang in sorted_languages) / max(len(sorted_languages), 1)
+    baseline_overall = sum(
+        baseline_per_language.get(lang, 0.0) for lang in sorted_languages
+    ) / max(len(sorted_languages), 1)
 
     merged_experiments = []
     for name, payload in experiment_map.items():
         per_language = payload["per_language"]
         if sorted_languages:
-            intervention_overall = sum(per_language.get(lang, {}).get("intervention_score", 0.0) for lang in sorted_languages) / len(sorted_languages)
+            intervention_overall = sum(
+                per_language.get(lang, {}).get("intervention_score", 0.0)
+                for lang in sorted_languages
+            ) / len(sorted_languages)
         else:
             intervention_overall = 0.0
         merged_experiments.append(
@@ -186,7 +198,9 @@ def _main(args: argparse.Namespace) -> None:
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(gpu_ids[idx])
         log_file = open(worker_log, "w", encoding="utf-8")
-        process = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT, env=env)
+        process = subprocess.Popen(
+            cmd, stdout=log_file, stderr=subprocess.STDOUT, env=env
+        )
         processes.append((process, log_file, worker_log))
 
     for process, log_file, _ in processes:
@@ -197,7 +211,9 @@ def _main(args: argparse.Namespace) -> None:
         if process.returncode != 0:
             with open(worker_log, "r", encoding="utf-8") as file:
                 log_tail = "".join(file.readlines()[-50:])
-            raise RuntimeError(f"Worker failed with rc={process.returncode}. Log: {worker_log}\n{log_tail}")
+            raise RuntimeError(
+                f"Worker failed with rc={process.returncode}. Log: {worker_log}\n{log_tail}"
+            )
 
     payloads = []
     for worker_output in worker_outputs:
@@ -226,14 +242,18 @@ def _main(args: argparse.Namespace) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run dual-T4 interpretability ablation sweep.")
+    parser = argparse.ArgumentParser(
+        description="Run dual-T4 interpretability ablation sweep."
+    )
     parser.add_argument("--worker", action="store_true")
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--languages", type=str, default=",".join(DEFAULT_LANGUAGES))
     parser.add_argument("--gpu-ids", type=str, default="0,1")
     parser.add_argument("--dataset-split", type=str, default="validation")
     parser.add_argument("--max-new-tokens", type=int, default=5)
-    parser.add_argument("--artifact-dir", type=str, default="results_output/interpretability")
+    parser.add_argument(
+        "--artifact-dir", type=str, default="results_output/interpretability"
+    )
     parser.add_argument("--experiments-json", type=str, default="")
     parser.add_argument("--languages-json", type=str, default="")
     parser.add_argument("--worker-output-json", type=str, default="")

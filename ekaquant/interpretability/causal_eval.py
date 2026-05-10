@@ -27,7 +27,9 @@ def _sample_names_evenly(candidates: List[str], count: int) -> List[str]:
     return sampled
 
 
-def build_default_ablation_experiments(model, attention_count: int = 6, mlp_count: int = 6) -> List[AblationExperiment]:
+def build_default_ablation_experiments(
+    model, attention_count: int = 6, mlp_count: int = 6
+) -> List[AblationExperiment]:
     named_modules = [name for name, _ in model.named_modules()]
 
     attention_candidates = sorted(
@@ -38,11 +40,7 @@ def build_default_ablation_experiments(model, attention_count: int = 6, mlp_coun
         }
     )
     mlp_candidates = sorted(
-        {
-            name
-            for name in named_modules
-            if ".mlp" in name or "feed_forward" in name
-        }
+        {name for name in named_modules if ".mlp" in name or "feed_forward" in name}
     )
 
     sampled_attention = _sample_names_evenly(attention_candidates, attention_count)
@@ -50,13 +48,25 @@ def build_default_ablation_experiments(model, attention_count: int = 6, mlp_coun
 
     experiments: List[AblationExperiment] = []
     for module_name in sampled_attention:
-        experiments.append(AblationExperiment(name=f"ablate::{module_name}", module_names=[module_name]))
+        experiments.append(
+            AblationExperiment(
+                name=f"ablate::{module_name}", module_names=[module_name]
+            )
+        )
     for module_name in sampled_mlp:
-        experiments.append(AblationExperiment(name=f"ablate::{module_name}", module_names=[module_name]))
+        experiments.append(
+            AblationExperiment(
+                name=f"ablate::{module_name}", module_names=[module_name]
+            )
+        )
     return experiments
 
 
-def _collect_language_rows(baseline_scores: Dict[str, float], intervention_scores: Dict[str, float], languages: Iterable[str]) -> List[Dict]:
+def _collect_language_rows(
+    baseline_scores: Dict[str, float],
+    intervention_scores: Dict[str, float],
+    languages: Iterable[str],
+) -> List[Dict]:
     rows = []
     for language in languages:
         key = f"ARC-Challenge-Indic_{language}"
@@ -104,9 +114,13 @@ def run_arc_ablation_comparison(
 
     experiment_reports = []
     for experiment in experiments:
-        with ablate_modules(pipe.model, experiment.module_names, scale=experiment.scale):
+        with ablate_modules(
+            pipe.model, experiment.module_names, scale=experiment.scale
+        ):
             intervention_scores = evaluate_arc_c_in(**base_eval_args)
-        rows = _collect_language_rows(baseline_scores, intervention_scores, target_languages)
+        rows = _collect_language_rows(
+            baseline_scores, intervention_scores, target_languages
+        )
         aggregate = aggregate_language_deltas(rows)
         experiment_reports.append(
             {
@@ -114,8 +128,13 @@ def run_arc_ablation_comparison(
                 "module_names": experiment.module_names,
                 "scale": experiment.scale,
                 "overall_baseline": baseline_overall,
-                "overall_intervention": float(intervention_scores.get("ARC-Challenge-Indic", 0.0)),
-                "overall_delta": float(intervention_scores.get("ARC-Challenge-Indic", 0.0)) - baseline_overall,
+                "overall_intervention": float(
+                    intervention_scores.get("ARC-Challenge-Indic", 0.0)
+                ),
+                "overall_delta": float(
+                    intervention_scores.get("ARC-Challenge-Indic", 0.0)
+                )
+                - baseline_overall,
                 "language_aggregate": aggregate,
             }
         )

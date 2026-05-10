@@ -7,7 +7,9 @@ def compute_delta(baseline_score: float, intervention_score: float) -> float:
     return float(intervention_score) - float(baseline_score)
 
 
-def compute_relative_delta(baseline_score: float, intervention_score: float, epsilon: float = 1e-9) -> float:
+def compute_relative_delta(
+    baseline_score: float, intervention_score: float, epsilon: float = 1e-9
+) -> float:
     baseline = float(baseline_score)
     intervention = float(intervention_score)
     return (intervention - baseline) / (abs(baseline) + epsilon)

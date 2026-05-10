@@ -14,7 +14,12 @@ class ModuleCaptureSpec:
 
 
 class ActivationCaptureSession:
-    def __init__(self, model: torch.nn.Module, specs: List[ModuleCaptureSpec], move_to_cpu: bool = True):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        specs: List[ModuleCaptureSpec],
+        move_to_cpu: bool = True,
+    ):
         self.model = model
         self.specs = specs
         self.move_to_cpu = move_to_cpu
@@ -45,9 +50,13 @@ class ActivationCaptureSession:
     def _make_hook(self, module_name: str, spec: ModuleCaptureSpec):
         def hook(_module, inputs, output):
             if spec.capture_input:
-                self.captured[module_name]["inputs"].append(self._normalize_tensor(inputs))
+                self.captured[module_name]["inputs"].append(
+                    self._normalize_tensor(inputs)
+                )
             if spec.capture_output:
-                self.captured[module_name]["outputs"].append(self._normalize_tensor(output))
+                self.captured[module_name]["outputs"].append(
+                    self._normalize_tensor(output)
+                )
 
         return hook
 

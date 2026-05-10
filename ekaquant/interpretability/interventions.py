@@ -17,7 +17,9 @@ def _apply_to_tensor_tree(value, fn):
 
 
 @contextmanager
-def ablate_modules(model: torch.nn.Module, module_names: Iterable[str], scale: float = 0.0):
+def ablate_modules(
+    model: torch.nn.Module, module_names: Iterable[str], scale: float = 0.0
+):
     names = set(module_names)
     handles = []
 
@@ -45,7 +47,9 @@ def patch_modules(model: torch.nn.Module, patch_tensors: Dict[str, torch.Tensor]
     def make_hook(module_name: str):
         def hook(_module, _inputs, output):
             patch = patch_tensors[module_name]
-            return _apply_to_tensor_tree(output, lambda tensor: patch.to(tensor.device, dtype=tensor.dtype))
+            return _apply_to_tensor_tree(
+                output, lambda tensor: patch.to(tensor.device, dtype=tensor.dtype)
+            )
 
         return hook
 

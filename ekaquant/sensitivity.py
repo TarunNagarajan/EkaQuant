@@ -37,7 +37,9 @@ def compute_magnitude(model, normalize_by_size: bool = True) -> Dict[str, float]
                 score /= max(param.numel(), 1)
             sensitivity_map[name.replace(".weight", "")] = float(score)
     if not sensitivity_map:
-        raise ValueError("No trainable weight parameters found for magnitude sensitivity.")
+        raise ValueError(
+            "No trainable weight parameters found for magnitude sensitivity."
+        )
     return sensitivity_map
 
 
@@ -105,7 +107,9 @@ def compute_fisher(
                     grad_sq = grad.float().square().sum().item()
                     module_name = name.replace(".weight", "")
                     fisher_density = grad_sq / max(param.numel(), 1)
-                    sensitivity_map[module_name] = sensitivity_map.get(module_name, 0.0) + fisher_density
+                    sensitivity_map[module_name] = (
+                        sensitivity_map.get(module_name, 0.0) + fisher_density
+                    )
                     layer_counts[module_name] = layer_counts.get(module_name, 0) + 1
             processed += 1
         except Exception:
@@ -116,7 +120,9 @@ def compute_fisher(
                 torch.cuda.empty_cache()
 
     if processed == 0 or not sensitivity_map:
-        raise RuntimeError("No samples were successfully processed for Fisher sensitivity.")
+        raise RuntimeError(
+            "No samples were successfully processed for Fisher sensitivity."
+        )
 
     if reduction == "mean":
         for name in list(sensitivity_map.keys()):
@@ -179,7 +185,9 @@ def compute_perturbation_sensitivity(
                     inp = layer_inputs[name].to(module.weight.device)
                     with torch.no_grad():
                         out_gt = module(inp)
-                        out_q = F.linear(inp, fake_quantize_int4(module.weight.data), module.bias)
+                        out_q = F.linear(
+                            inp, fake_quantize_int4(module.weight.data), module.bias
+                        )
                         mse = (out_gt - out_q).pow(2).mean().item()
                         norm = out_gt.pow(2).mean().item() + 1e-6
                         score = mse / norm
@@ -199,7 +207,9 @@ def compute_perturbation_sensitivity(
             hook.remove()
 
     if processed == 0 or not sensitivity_map:
-        raise RuntimeError("No samples were successfully processed for perturbation sensitivity.")
+        raise RuntimeError(
+            "No samples were successfully processed for perturbation sensitivity."
+        )
 
     for name in list(sensitivity_map.keys()):
         count = layer_counts.get(name, 0)

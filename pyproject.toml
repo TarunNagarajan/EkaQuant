@@ -8,6 +8,19 @@ version = "0.1.0"
 description = "Task-aware selective quantization toolkit for eka-eval integration"
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "Tarun Nagarajan"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
 dependencies = [
   "torch>=2.4.0",
   "transformers>=4.44.2",
@@ -17,7 +30,14 @@ dependencies = [
   "kneed>=0.8.5",
   "scikit-image>=0.24.0",
   "tqdm>=4.66.0",
+  "pandas>=2.0.0",
+  "matplotlib>=3.7.0",
+  "seaborn>=0.12.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/TarunNagarajan/EkaQuant"
+Repository = "https://github.com/TarunNagarajan/EkaQuant"
 
 [tool.setuptools.packages.find]
 include = ["ekaquant*"]
