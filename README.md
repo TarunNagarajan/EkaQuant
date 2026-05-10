@@ -38,18 +38,6 @@ Measured during actual inference on Dual-T4 GPUs via `eka-eval`. Values represen
 
 ---
 
-## 🔬 Research Analysis: The Regularization Paradox
-
-The empirical results from EkaQuant present a compelling "Mechanistic Paradox":
-
-1.  **Mathematical Success**: EkaQuant achieved a **54.16% reduction in KL-Divergence**, proving that selective precision effectively restores the model's internal probability distributions for Indic languages to their original fp16 state.
-2.  **Benchmark Neutrality**: Despite the recovery of distributional fidelity, the ARC-Challenge accuracy scores remained largely flat, with Uniform 4-bit quantization exhibiting a slight "regularization effect" (outperforming the 8-bit baseline in Bengali).
-
-**Interpretation**: 
-This suggests that for 7B models like Mistral, the "noise" introduced by uniform quantization may act as a regularizer for certain reasoning tasks, even as it destroys the linguistic nuances required for high-fidelity generation. EkaQuant succeeds as a **distribution stabilizer**, making it ideal for tasks requiring linguistic precision (e.g., translation, creative writing), while **Surgical Recovery LoRA (SR-LoRA)** is positioned as the required active intervention to translate these distributional gains into downstream benchmark improvements.
-
----
-
 ## Surgical Recovery LoRA (SR-LoRA)
 
 As an advanced alternative to mixed-precision quantization, EkaQuant introduces **Surgical Recovery LoRA (SR-LoRA)**. 
@@ -124,6 +112,7 @@ The following results highlight the impact of uniform quantization on SLMs, esta
 | Qwen/Qwen2.5-3B-Instruct | 4-bit | 30.70% |
 | Qwen/Qwen2.5-7B-Instruct | 8-bit | 38.59% |
 | Qwen/Qwen2.5-7B-Instruct | 4-bit | 40.00% |
+| Mistral-7B-Instruct-v0.3 | 8-bit | 29.82% |
 
 ## Project Structure
 - `ekaquant/`: Core library implementation.
