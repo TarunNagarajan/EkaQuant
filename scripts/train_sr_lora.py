@@ -1,9 +1,14 @@
 import argparse
 import torch
 import json
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    TrainingArguments,
+    Trainer,
+    DataCollatorForLanguageModeling,
+)
 from datasets import load_dataset
-from trl import SFTTrainer
 from ekaquant.quantization import TaskAwareQuantizer
 
 
@@ -56,23 +61,19 @@ def main():
     print("Trainable Parameters:")
     model.print_trainable_parameters()
 
-    # Load a small sample dataset for calibration/recovery training
-    # For demonstration, we use a tiny subset of Hindi/Bengali Wikipedia or similar.
-    # In practice, use a targeted alignment dataset.
     print("Loading calibration dataset...")
     dataset = load_dataset("wikimedia/wikipedia", "20231101.hi", split="train[:100]")
 
-    def format_prompts(examples):
-        texts = []
-        for text in examples["text"]:
-            texts.append(text)
-        return {"text": texts}
+    def tokenize_function(examples):
+        # Standard tokenization for Causal LM
+        return tokenizer(examples["text"], truncation=True, max_length=512)
 
-    dataset = dataset.map(format_prompts, batched=True)
+    print("Tokenizing dataset...")
+    tokenized_dataset = dataset.map(
+        tokenize_function, batched=True, remove_columns=dataset.column_names
+    )
 
-    from trl import SFTConfig
-
-    sft_config = SFTConfig(
+    training_args = TrainingArguments(
         output_dir="./sr_lora_output",
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
@@ -81,14 +82,17 @@ def main():
         fp16=True,
         logging_steps=10,
         optim="paged_adamw_8bit",
-        dataset_text_field="text",
+        remove_unused_columns=False,
     )
 
-    trainer = SFTTrainer(
+    # Use standard DataCollator for Language Modeling (mlm=False for Causal LM)
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+
+    trainer = Trainer(
         model=model,
-        train_dataset=dataset,
-        args=sft_config,
-        max_seq_length=512,
+        train_dataset=tokenized_dataset,
+        args=training_args,
+        data_collator=data_collator,
     )
 
     print("Starting SR-LoRA fine-tuning...")
