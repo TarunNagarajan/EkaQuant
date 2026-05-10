@@ -159,10 +159,11 @@ class TaskAwareQuantizer:
                 if isinstance(module, nn.Linear) and name not in selected_layers:
                     layers_to_quantize.append((name, module.weight.device))
 
-            for layer_name, target_device in layers_to_quantize:
+            for idx, (layer_name, target_device) in enumerate(layers_to_quantize):
+                if idx % 50 == 0:
+                    print(f"  Quantizing layer {idx + 1}/{len(layers_to_quantize)}...")
                 module = dict(self.model.named_modules())[layer_name]
                 self._replace_linear_with_bnb(layer_name, module, target_device)
-
             self.model.eval()
 
         elif mode_str == "sr_lora":
@@ -174,10 +175,11 @@ class TaskAwareQuantizer:
                 if isinstance(module, nn.Linear):
                     layers_to_quantize.append((name, module.weight.device))
 
-            for layer_name, target_device in layers_to_quantize:
+            for idx, (layer_name, target_device) in enumerate(layers_to_quantize):
+                if idx % 50 == 0:
+                    print(f"  Quantizing layer {idx + 1}/{len(layers_to_quantize)}...")
                 module = dict(self.model.named_modules())[layer_name]
                 self._replace_linear_with_bnb(layer_name, module, target_device)
-
             if not selected_layers:
                 print(
                     "Warning: No layers selected for SR-LoRA injection based on budget/threshold."
