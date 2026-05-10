@@ -29,6 +29,18 @@ To achieve this 54% recovery, EkaQuant introduces a mathematically bounded, negl
 
 ---
 
+## 🧠 The Mechanistic Rationale: Superposition and SAEs
+
+EkaQuant's methodology is grounded in mechanistic interpretability. In foundation models pre-trained primarily on English, robust and dedicated circuitry is formed for English concepts. In contrast, the morphological richness of low-resource Indic languages forces their representations into heavy **superposition** (sharing neurons/parameters with other concepts).
+
+When uniform low-bit quantization (like NF4) is applied, the precision required to correctly decode these delicate, overlapping features from the residual stream is lost. 
+
+EkaQuant acts as a structural diagnostic tool. While **Sparse Autoencoders (SAEs)** are typically used to extract monosemantic features from these superimposed activations, training SAEs for every language is computationally prohibitive. EkaQuant sidesteps this by using systematic targeted ablation to identify the specific weight matrices (the "bottlenecks") where these superimposed features are most fragile, and mathematically shields them from quantization.
+
+*(Note: EkaQuant's core architecture was recently refactored to accept arbitrary `Callable` sensitivity metrics, meaning pre-trained SAE activation norms can be natively injected as a routing mechanism in future research).*
+
+---
+
 ## Technical Validation and Visual Analysis
 
 The effectiveness of EkaQuant is supported by a comprehensive suite of visual artifacts derived from a 4-hour dual-GPU interpretability sweep and KL-divergence validation.
