@@ -1,0 +1,388 @@
+{
+  "model": "mistralai/Mistral-7B-Instruct-v0.3",
+  "gpu_ids": [
+    0,
+    1
+  ],
+  "dataset_split": "validation",
+  "max_new_tokens": 5,
+  "worker_outputs": [
+    "results_output/interpretability/dual_t4_20260509_155937/worker_0_summary.json",
+    "results_output/interpretability/dual_t4_20260509_155937/worker_1_summary.json"
+  ],
+  "merged": {
+    "languages": [
+      "bn",
+      "en",
+      "hi"
+    ],
+    "baseline_overall": 45.27432966313673,
+    "baseline_per_language": {
+      "bn": 29.931972789115648,
+      "en": 77.31958762886599,
+      "hi": 28.57142857142857
+    },
+    "experiments": [
+      {
+        "name": "ablate::model.layers.0.mlp",
+        "module_names": [
+          "model.layers.0.mlp"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 0.0,
+        "overall_delta": -45.27432966313673,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 0.0,
+            "delta": -29.931972789115648,
+            "relative_delta": -0.999999999966591
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 0.0,
+            "delta": -77.31958762886599,
+            "relative_delta": -0.9999999999870666
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 0.0,
+            "delta": -28.57142857142857,
+            "relative_delta": -0.999999999965
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.0.self_attn",
+        "module_names": [
+          "model.layers.0.self_attn"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 19.456717394861723,
+        "overall_delta": -25.81761226827501,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 1.0204081632653061,
+            "delta": -28.911564625850342,
+            "relative_delta": -0.9659090908768208
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 53.608247422680414,
+            "delta": -23.711340206185575,
+            "relative_delta": -0.3066666666627005
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 3.741496598639456,
+            "delta": -24.82993197278911,
+            "relative_delta": -0.8690476190172023
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.13.self_attn.k_proj",
+        "module_names": [
+          "model.layers.13.self_attn.k_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 41.39724618369684,
+        "overall_delta": -3.8770834794398894,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 23.809523809523807,
+            "delta": -6.122448979591841,
+            "relative_delta": -0.204545454538621
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 70.79037800687286,
+            "delta": -6.529209621993132,
+            "relative_delta": -0.08444444444335235
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 29.591836734693878,
+            "delta": 1.0204081632653086,
+            "relative_delta": 0.0357142857130358
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.4.self_attn",
+        "module_names": [
+          "model.layers.4.self_attn"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 41.97582813194006,
+        "overall_delta": -3.2985015311966706,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 23.12925170068027,
+            "delta": -6.802721088435376,
+            "relative_delta": -0.22727272726513437
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 74.22680412371135,
+            "delta": -3.0927835051546424,
+            "relative_delta": -0.0399999999994827
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 28.57142857142857,
+            "delta": 0.0,
+            "relative_delta": 0.0
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.4.mlp",
+        "module_names": [
+          "model.layers.4.mlp"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 42.3042756621549,
+        "overall_delta": -2.9700540009818326,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 27.89115646258503,
+            "delta": -2.040816326530617,
+            "relative_delta": -0.06818181817954046
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 70.79037800687286,
+            "delta": -6.529209621993132,
+            "relative_delta": -0.08444444444335235
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 28.2312925170068,
+            "delta": -0.34013605442176953,
+            "relative_delta": -0.011904761904345267
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.18.mlp.down_proj",
+        "module_names": [
+          "model.layers.18.mlp.down_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 43.912616593028964,
+        "overall_delta": -1.3617130701077684,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 28.2312925170068,
+            "delta": -1.7006802721088476,
+            "relative_delta": -0.05681818181628371
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 76.97594501718214,
+            "delta": -0.3436426116838476,
+            "relative_delta": -0.004444444444386946
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 26.53061224489796,
+            "delta": -2.04081632653061,
+            "relative_delta": -0.07142857142607136
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.27.mlp.up_proj",
+        "module_names": [
+          "model.layers.27.mlp.up_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 44.02599527783622,
+        "overall_delta": -1.2483343853005096,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 26.190476190476193,
+            "delta": -3.741496598639454,
+            "relative_delta": -0.1249999999958238
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 76.97594501718214,
+            "delta": -0.3436426116838476,
+            "relative_delta": -0.004444444444386946
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 28.91156462585034,
+            "delta": 0.34013605442176953,
+            "relative_delta": 0.011904761904345267
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.18.self_attn.o_proj",
+        "module_names": [
+          "model.layers.18.self_attn.o_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 44.36730018467869,
+        "overall_delta": -0.9070294784580426,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 28.57142857142857,
+            "delta": -1.3605442176870781,
+            "relative_delta": -0.04545454545302697
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 77.31958762886599,
+            "delta": 0.0,
+            "relative_delta": 0.0
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 27.2108843537415,
+            "delta": -1.360544217687071,
+            "relative_delta": -0.047619047617380825
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.22.mlp.gate_proj",
+        "module_names": [
+          "model.layers.22.mlp.gate_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 44.58938214461042,
+        "overall_delta": -0.6849475185263145,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 29.25170068027211,
+            "delta": -0.6802721088435391,
+            "relative_delta": -0.022727272726513485
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 75.94501718213058,
+            "delta": -1.3745704467354045,
+            "relative_delta": -0.01777777777754797
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 28.57142857142857,
+            "delta": 0.0,
+            "relative_delta": 0.0
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.13.mlp.act_fn",
+        "module_names": [
+          "model.layers.13.mlp.act_fn"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 44.818477219066324,
+        "overall_delta": -0.45585244407040904,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 26.87074829931973,
+            "delta": -3.0612244897959187,
+            "relative_delta": -0.10227272726931044
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 76.6323024054983,
+            "delta": -0.6872852233676952,
+            "relative_delta": -0.008888888888773892
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 30.952380952380953,
+            "delta": 2.380952380952383,
+            "relative_delta": 0.08333333333041675
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.27.self_attn.v_proj",
+        "module_names": [
+          "model.layers.27.self_attn.v_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 45.27783622039882,
+        "overall_delta": 0.0035065572620851526,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 30.272108843537417,
+            "delta": 0.34013605442176953,
+            "relative_delta": 0.011363636363256742
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 78.35051546391753,
+            "delta": 1.0309278350515427,
+            "relative_delta": 0.013333333333160838
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 27.2108843537415,
+            "delta": -1.360544217687071,
+            "relative_delta": -0.047619047617380825
+          }
+        }
+      },
+      {
+        "name": "ablate::model.layers.22.self_attn.q_proj",
+        "module_names": [
+          "model.layers.22.self_attn.q_proj"
+        ],
+        "scale": 0.0,
+        "overall_baseline": 45.27432966313673,
+        "overall_intervention": 45.50342473759263,
+        "overall_delta": 0.22909507445589838,
+        "per_language": {
+          "bn": {
+            "baseline_score": 29.931972789115648,
+            "intervention_score": 30.612244897959183,
+            "delta": 0.6802721088435355,
+            "relative_delta": 0.022727272726513367
+          },
+          "en": {
+            "baseline_score": 77.31958762886599,
+            "intervention_score": 78.00687285223368,
+            "delta": 0.6872852233676952,
+            "relative_delta": 0.008888888888773892
+          },
+          "hi": {
+            "baseline_score": 28.57142857142857,
+            "intervention_score": 27.89115646258503,
+            "delta": -0.6802721088435391,
+            "relative_delta": -0.023809523808690534
+          }
+        }
+      }
+    ]
+  }
+}
