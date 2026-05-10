@@ -29,7 +29,7 @@ To achieve this 54% recovery, EkaQuant introduces a mathematically bounded, negl
 
 ---
 
-## 🧠 The Mechanistic Rationale: Superposition and SAEs
+## The Mechanistic Rationale: Superposition and SAEs
 
 EkaQuant's methodology is grounded in mechanistic interpretability. In foundation models pre-trained primarily on English, robust and dedicated circuitry is formed for English concepts. In contrast, the morphological richness of low-resource Indic languages forces their representations into heavy **superposition** (sharing neurons/parameters with other concepts).
 
