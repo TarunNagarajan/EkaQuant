@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import bitsandbytes as bnb
 import torch
@@ -19,15 +19,20 @@ class TaskAwareQuantizer:
 
     def compute_sensitivity(
         self,
-        method: str,
+        method: Union[str, Callable],
         calibration_texts: Iterable[str],
         reduction: str = "mean",
         fisher_clip_percentile: float | None = 99.0,
         fisher_clip_samples: int = 32,
         max_length: int = 2048,
+        **kwargs,
     ) -> Dict[str, float]:
-        method = method.lower()
-        if method == "fisher":
+        if callable(method):
+            self.sensitivity_map = method(self.model, self.tokenizer, calibration_texts, **kwargs)
+            return self.sensitivity_map
+
+        method_str = method.lower()
+        if method_str == "fisher":
             self.sensitivity_map = compute_fisher(
                 self.model,
                 self.tokenizer,
@@ -37,9 +42,9 @@ class TaskAwareQuantizer:
                 clip_samples=fisher_clip_samples,
                 max_length=max_length,
             )
-        elif method == "magnitude":
+        elif method_str == "magnitude":
             self.sensitivity_map = compute_magnitude(self.model)
-        elif method == "perturbation":
+        elif method_str == "perturbation":
             self.sensitivity_map = compute_perturbation_sensitivity(
                 self.model,
                 self.tokenizer,
@@ -80,8 +85,8 @@ class TaskAwareQuantizer:
     def quantize(
         self,
         calibration_texts: Iterable[str],
-        sensitivity_method: str = "fisher",
-        selection_method: str = "pct",
+        sensitivity_method: Union[str, Callable] = "fisher",
+        selection_method: Union[str, Callable] = "pct",
         percentile: float = 0.2,
         sensitivity_ratio: float = 0.05,
         budget: float = 0.95,
@@ -91,6 +96,7 @@ class TaskAwareQuantizer:
         fisher_clip_percentile: float | None = 99.0,
         fisher_clip_samples: int = 32,
         max_length: int = 2048,
+        **kwargs,
     ):
         if self.sensitivity_map is None:
             self.compute_sensitivity(
@@ -100,6 +106,7 @@ class TaskAwareQuantizer:
                 fisher_clip_percentile=fisher_clip_percentile,
                 fisher_clip_samples=fisher_clip_samples,
                 max_length=max_length,
+                **kwargs,
             )
 
         layers_to_keep = set(
@@ -112,6 +119,7 @@ class TaskAwareQuantizer:
                 budget=budget,
                 budget_mb=budget_mb,
                 invert_selection=invert_selection,
+                **kwargs,
             )
         )
         print(f"EkaQuant: Keeping {len(layers_to_keep)} layers in higher precision.")

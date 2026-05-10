@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 import torch.nn as nn
@@ -111,30 +111,37 @@ def knapsack_keep_layers(model, sensitivity_map: Dict[str, float], budget_mb: fl
 def select_layers(
     model,
     sensitivity_map: Dict[str, float],
-    method: str = "pct",
+    method: Union[str, Callable] = "pct",
     percentile: float = 0.2,
     sensitivity_ratio: float = 0.05,
     budget: float = 0.95,
     budget_mb: float = 4096,
     invert_selection: bool = False,
+    **kwargs,
 ) -> List[str]:
     linear_layers = {name for name, module in model.named_modules() if isinstance(module, nn.Linear)}
     filtered = {k: v for k, v in sensitivity_map.items() if k in linear_layers}
     if not filtered:
         raise ValueError("No linear-layer sensitivity scores match model modules.")
 
-    method = method.lower()
-    if method == "knapsack":
+    if callable(method):
+        selected = method(model, filtered, **kwargs)
+        if invert_selection:
+            return [name for name in filtered if name not in selected]
+        return selected
+
+    method_str = method.lower()
+    if method_str == "knapsack":
         return knapsack_keep_layers(model, filtered, budget_mb)
-    if method == "pct":
+    if method_str == "pct":
         t = threshold_pct(filtered, percentile)
-    elif method == "otsu":
+    elif method_str == "otsu":
         t = threshold_otsu_method(filtered)
-    elif method == "elb":
+    elif method_str == "elb":
         t = threshold_elbow(filtered)
-    elif method == "gradient":
+    elif method_str == "gradient":
         t = threshold_gradient(filtered, sensitivity_ratio)
-    elif method == "cumulative":
+    elif method_str == "cumulative":
         t = threshold_cumulative(filtered, budget)
     else:
         raise ValueError(f"Unknown selection method: {method}")
